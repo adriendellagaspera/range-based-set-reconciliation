@@ -1,0 +1,1042 @@
+// Copyright 2023 Developers of the reconcile project.
+//
+// Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
+// https://www.apache.org/licenses/LICENSE-2.0> or the MIT license
+// <LICENSE-MIT or https://opensource.org/licenses/MIT>, at your
+// option. This file may not be copied, modified, or distributed
+// except according to those terms.
+
+//! Provides [`FingerprintTree`], a from-scratch `ArrayVec`-node B-tree (order 6) that caches a
+//! per-subtree [`Fingerprint`] (and element count) at every node.
+//!
+//! It allows `O(log(n))` access, insertion and removal, as well as `O(log(n))` cumulated
+//! hash range-queries. The latter property enables querying the cumulated [`Fingerprint`] of all
+//! key-value pairs between two keys.
+//!
+//! The per-element hash and the way fingerprints are combined (256-bit addition,
+//! *not* XOR) live in [`crate::fingerprint`]; see that module for
+//! why the combiner and hash function are chosen the way they are.
+
+//! Although we did come we the idea independently, it exactly matches a paper
+//! published on Arxiv in February 2023:
+//! [Range-Based Set Reconciliation](https://arxiv.org/abs/2212.13567), by Aljoscha Meyer
+//!
+//! [`FingerprintTree`] exposes the range-hash queries (`hash`/`range_aggregate`,
+//! `insertion_position`, `key_at`, `len`) that a range-based-set-reconciliation anti-entropy
+//! protocol (such as this workspace's `rbsr`-to-be) needs to drive range reconciliation. It also
+//! implements the [`Rsos`](crate::Rsos) trait — see the crate root docs.
+
+use std::cmp::Ordering;
+use std::hash::Hash;
+use std::ops::{Bound, RangeBounds};
+
+use arrayvec::ArrayVec;
+use range_cmp::{RangeOrd, RangeOrdering};
+use tracing::trace;
+
+use crate::fingerprint::{hash, Fingerprint};
+
+const B: usize = 6;
+const MIN_CAPACITY: usize = B - 1;
+const MAX_CAPACITY: usize = 2 * B - 1;
+
+type InsertionTuple<K, V> = Option<(K, V, Fingerprint, Box<Node<K, V>>)>;
+
+/// Which sibling a [`Node::steal`] rotates a separator from.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Side {
+    Left,
+    Right,
+}
+
+#[derive(Clone, Debug, Default)]
+pub(crate) struct Node<K, V> {
+    pub(crate) keys: ArrayVec<K, MAX_CAPACITY>,
+    pub(crate) values: ArrayVec<V, MAX_CAPACITY>,
+    hashes: ArrayVec<Fingerprint, MAX_CAPACITY>,
+    pub(crate) children: Option<ArrayVec<Box<Node<K, V>>, { MAX_CAPACITY + 1 }>>,
+    tree_hash: Fingerprint,
+    tree_size: usize,
+}
+
+impl<K, V> Node<K, V> {
+    fn new() -> Self {
+        Node {
+            keys: ArrayVec::new(),
+            values: ArrayVec::new(),
+            hashes: ArrayVec::new(),
+            children: None,
+            tree_hash: Fingerprint::ZERO,
+            tree_size: 0,
+        }
+    }
+
+    fn refresh_hash_size(&mut self) {
+        let mut cum_hash = Fingerprint::ZERO;
+        for hash in self.hashes.iter() {
+            cum_hash += *hash;
+        }
+        let mut tot_size = self.keys.len();
+        if let Some(children) = self.children.as_ref() {
+            for child in children {
+                cum_hash += child.tree_hash;
+                tot_size += child.tree_size;
+            }
+        }
+        self.tree_hash = cum_hash;
+        self.tree_size = tot_size;
+    }
+
+    fn insert(
+        &mut self,
+        index: usize,
+        key: K,
+        value: V,
+        hash: Fingerprint,
+        right_child: Option<Box<Node<K, V>>>,
+        diff_hash: Fingerprint,
+    ) -> InsertionTuple<K, V> {
+        assert_eq!(self.children.is_none(), right_child.is_none());
+        if self.keys.is_full() {
+            // TODO: handle case where self.keys.len() == 2 without leaving empty node
+            let mid = self.keys.len() / 2;
+            // split
+            let mut right_sibling = Box::new(Node {
+                keys: ArrayVec::from_iter(self.keys.drain(mid + 1..)),
+                values: ArrayVec::from_iter(self.values.drain(mid + 1..)),
+                hashes: ArrayVec::from_iter(self.hashes.drain(mid + 1..)),
+                children: self
+                    .children
+                    .as_mut()
+                    .map(|children| ArrayVec::from_iter(children.drain(mid + 1..))),
+                tree_hash: Fingerprint::ZERO,
+                tree_size: 0,
+            });
+            let mid_key = self.keys.pop().unwrap();
+            let mid_value = self.values.pop().unwrap();
+            let mid_hash = self.hashes.pop().unwrap();
+            // do the insert
+            let to_insert = if index <= mid {
+                self.insert(index, key, value, hash, right_child, diff_hash)
+            } else {
+                right_sibling.insert(index - mid - 1, key, value, hash, right_child, diff_hash)
+            };
+            assert!(to_insert.is_none());
+            assert!(!self.keys.is_empty());
+            assert!(!right_sibling.keys.is_empty());
+            // update invariants
+            self.refresh_hash_size();
+            right_sibling.refresh_hash_size();
+            Some((mid_key, mid_value, mid_hash, right_sibling))
+        } else {
+            // just insert
+            self.keys.insert(index, key);
+            self.values.insert(index, value);
+            self.hashes.insert(index, hash);
+            self.tree_size += 1;
+            self.tree_hash += diff_hash;
+            if let Some(right_child) = right_child {
+                assert!(self.children.is_some());
+                self.children
+                    .as_mut()
+                    .unwrap()
+                    .insert(index + 1, right_child);
+            }
+            None
+        }
+    }
+
+    /// Rotate one separator (and its adjacent child) from an over-full sibling into the
+    /// underflowing child at `index`, restoring the minimum-occupancy invariant.
+    ///
+    /// [`Side::Left`] steals the *last* separator of the left sibling (`index - 1`) and
+    /// rotates right; [`Side::Right`] steals the *first* separator of the right sibling
+    /// (`index + 1`) and rotates left. The two cases are exact mirror images, so they share this
+    /// body and differ only by which end of the sibling is popped, which parent separator is
+    /// exchanged, and which end of the current node receives the rotated entry.
+    fn steal(&mut self, index: usize, side: Side) {
+        let from_left = side == Side::Left;
+        let children = self.children.as_mut().unwrap();
+        let (sibling_index, sep_index) = if from_left {
+            (index - 1, index - 1)
+        } else {
+            (index + 1, index)
+        };
+        // take the boundary separator (k, v, h) from the sibling
+        let sibling = children[sibling_index].as_mut();
+        let (k, v, h) = if from_left {
+            (
+                sibling.keys.pop().unwrap(),
+                sibling.values.pop().unwrap(),
+                sibling.hashes.pop().unwrap(),
+            )
+        } else {
+            (
+                sibling.keys.remove(0),
+                sibling.values.remove(0),
+                sibling.hashes.remove(0),
+            )
+        };
+        sibling.tree_size -= 1;
+        sibling.tree_hash -= h;
+        // take the boundary child from the sibling if any
+        let c = sibling.children.as_mut().map(|children| {
+            let c = if from_left {
+                children.pop().unwrap()
+            } else {
+                children.remove(0)
+            };
+            sibling.tree_size -= c.tree_size;
+            sibling.tree_hash -= c.tree_hash;
+            c
+        });
+        // exchange the sibling's separator with the parent's separator
+        let k = std::mem::replace(&mut self.keys[sep_index], k);
+        let v = std::mem::replace(&mut self.values[sep_index], v);
+        let h = std::mem::replace(&mut self.hashes[sep_index], h);
+        // move the separator into the current (underflowing) node, at the end facing the sibling
+        let current = self.children.as_mut().unwrap()[index].as_mut();
+        if from_left {
+            current.keys.insert(0, k);
+            current.values.insert(0, v);
+            current.hashes.insert(0, h);
+        } else {
+            current.keys.push(k);
+            current.values.push(v);
+            current.hashes.push(h);
+        }
+        current.tree_size += 1;
+        current.tree_hash += h;
+        // move the rotated child into the current node if any
+        if let Some(c) = c {
+            current.tree_size += c.tree_size;
+            current.tree_hash += c.tree_hash;
+            let current_children = current.children.as_mut().unwrap();
+            if from_left {
+                current_children.insert(0, c);
+            } else {
+                current_children.push(c);
+            }
+        }
+    }
+
+    fn rebalance_after_deletion(&mut self, index: usize) {
+        let children = self.children.as_mut().unwrap();
+        if children[index].keys.len() >= MIN_CAPACITY {
+            // nothing to do
+            return;
+        }
+        // need to restore minimum node size invariant
+        if index > 0 && children[index - 1].keys.len() > MIN_CAPACITY {
+            // steal left, rotate right
+            self.steal(index, Side::Left);
+        } else if index + 1 < children.len() && children[index + 1].keys.len() > MIN_CAPACITY {
+            // steal right, rotate left
+            self.steal(index, Side::Right);
+        } else {
+            let merge_into = if index > 0 {
+                index - 1
+            } else if index + 1 < children.len() {
+                index
+            } else {
+                // root node, nothing to do
+                return;
+            };
+
+            // merge right sibling in the current node
+            let right_sibling = children.remove(merge_into + 1);
+            let current = children[merge_into].as_mut();
+            // move separator in current node
+            let k = self.keys.remove(merge_into);
+            let v = self.values.remove(merge_into);
+            let h = self.hashes.remove(merge_into);
+            current.keys.push(k);
+            current.values.push(v);
+            current.hashes.push(h);
+            current.tree_size += 1;
+            current.tree_hash += h;
+            // move values of right_sibling in current node
+            for k in right_sibling.keys {
+                current.keys.push(k);
+            }
+            for v in right_sibling.values {
+                current.values.push(v);
+            }
+            for h in right_sibling.hashes {
+                current.hashes.push(h);
+            }
+            if let Some(child_children) = current.children.as_mut() {
+                for c in right_sibling.children.unwrap() {
+                    child_children.push(c);
+                }
+            }
+            current.tree_size += right_sibling.tree_size;
+            current.tree_hash += right_sibling.tree_hash;
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct FingerprintTree<K, V> {
+    pub(crate) root: Box<Node<K, V>>,
+}
+
+impl<K, V> Default for FingerprintTree<K, V> {
+    fn default() -> Self {
+        FingerprintTree {
+            root: Box::new(Node::new()),
+        }
+    }
+}
+
+impl<K: Hash + Ord, V: Hash> FingerprintTree<K, V> {
+    pub fn new() -> Self {
+        Default::default()
+    }
+
+    pub fn get<'a>(&'a self, key: &K) -> Option<&'a V> {
+        fn aux<'a, K: Ord, V>(node: &'a Node<K, V>, key: &K) -> Option<&'a V> {
+            match node.keys.binary_search(key) {
+                Ok(index) => Some(&node.values[index]),
+                Err(index) => {
+                    if let Some(children) = node.children.as_ref() {
+                        aux(children[index].as_ref(), key)
+                    } else {
+                        None
+                    }
+                }
+            }
+        }
+        aux(self.root.as_ref(), key)
+    }
+
+    pub fn with_mut<F: FnOnce(Option<&mut V>)>(&mut self, key: &K, callback: F) {
+        fn aux<K: Hash + Ord, V: Hash, F: FnOnce(Option<&mut V>)>(
+            node: &mut Node<K, V>,
+            key: &K,
+            callback: F,
+        ) -> Fingerprint {
+            match node.keys.binary_search(key) {
+                Ok(index) => {
+                    let v = Some(&mut node.values[index]);
+                    callback(v);
+                    // callback likely modified v, so we need to restore the hash invariants
+                    let old_hash = node.hashes[index];
+                    let new_hash = hash(key, &node.values[index]);
+                    node.hashes[index] = new_hash;
+                    // signed delta to apply to this node and every ancestor's fingerprint
+                    let diff_hash = new_hash - old_hash;
+                    node.tree_hash += diff_hash;
+                    diff_hash
+                }
+                Err(index) => {
+                    if let Some(children) = node.children.as_mut() {
+                        let diff_hash = aux(children[index].as_mut(), key, callback);
+                        node.tree_hash += diff_hash;
+                        diff_hash
+                    } else {
+                        callback(None);
+                        // callback cannot change the content of the tree, no invariant to restore
+                        Fingerprint::ZERO
+                    }
+                }
+            }
+        }
+        aux(self.root.as_mut(), key, callback);
+    }
+
+    pub fn position(&self, key: &K) -> Option<usize> {
+        fn aux<K: Ord, V>(node: &Node<K, V>, key: &K) -> Option<usize> {
+            if let Some(children) = node.children.as_ref() {
+                let mut index = 0;
+                for i in 0..node.keys.len() {
+                    let cmp = key.cmp(&node.keys[i]);
+                    if cmp == Ordering::Less {
+                        // recurse left to key
+                        return aux(&children[i], key).map(|offset| index + offset);
+                    }
+                    // pass sub-tree
+                    index += children[i].tree_size;
+                    if cmp == Ordering::Equal {
+                        // found key
+                        return Some(index);
+                    }
+                    // pass node
+                    index += 1;
+                }
+                aux(children.last().unwrap().as_ref(), key).map(|offset| index + offset)
+            } else {
+                node.keys.binary_search(key).ok()
+            }
+        }
+        aux(self.root.as_ref(), key)
+    }
+
+    pub fn insert(&mut self, key: K, value: V) -> Option<V> {
+        // return:
+        // - a key and node to be inserted after the current node
+        // - the hash difference
+        // - the value that was at key, if any
+        fn aux<K: Hash + Ord, V: Hash>(
+            node: &mut Node<K, V>,
+            key: K,
+            value: V,
+        ) -> (InsertionTuple<K, V>, Fingerprint, Option<V>) {
+            match node.keys.binary_search(&key) {
+                Ok(index) => {
+                    let old_hash = node.hashes[index];
+                    let new_hash = hash(&key, &value);
+                    // signed delta to apply to this node and every ancestor
+                    let diff_hash = new_hash - old_hash;
+                    node.hashes[index] = new_hash;
+                    node.tree_hash += diff_hash;
+                    let ret = std::mem::replace(&mut node.values[index], value);
+                    (None, diff_hash, Some(ret))
+                }
+                Err(index) => {
+                    if let Some(children) = node.children.as_mut() {
+                        // internal node
+                        let (mut to_insert, diff_hash, ret) = aux(&mut children[index], key, value);
+                        if let Some((key, value, hash, right_child)) = to_insert {
+                            to_insert =
+                                node.insert(index, key, value, hash, Some(right_child), diff_hash)
+                        } else {
+                            if ret.is_none() {
+                                node.tree_size += 1;
+                            }
+                            node.tree_hash += diff_hash;
+                        }
+                        (to_insert, diff_hash, ret)
+                    } else {
+                        // leaf
+                        let hash = hash(&key, &value);
+                        let to_insert = node.insert(index, key, value, hash, None, hash);
+                        (to_insert, hash, None)
+                    }
+                }
+            }
+        }
+        let (to_insert, _, ret) = aux(&mut self.root, key, value);
+        // if we still have things to insert at the root, we need to create a new root
+        if let Some((key, value, hash, right_child)) = to_insert {
+            let new_root = Box::new(Node::new());
+            let old_root = std::mem::replace(&mut self.root, new_root);
+            let mut children = ArrayVec::new();
+            children.push(old_root);
+            children.push(right_child);
+            self.root.keys.push(key);
+            self.root.values.push(value);
+            self.root.hashes.push(hash);
+            self.root.children = Some(children);
+            self.root.refresh_hash_size();
+        }
+        trace!(
+            "Updated state after insertion; global hash is now {}",
+            self.root.tree_hash
+        );
+        ret
+    }
+
+    pub fn remove(&mut self, key: &K) -> Option<V> {
+        fn rightmost_child<K, V>(node: &mut Node<K, V>) -> (K, V, Fingerprint) {
+            if let Some(children) = node.children.as_mut() {
+                let (k, v, h) = rightmost_child(children.last_mut().unwrap());
+                node.tree_size -= 1;
+                node.tree_hash -= h;
+                node.rebalance_after_deletion(node.keys.len());
+                (k, v, h)
+            } else {
+                let k = node.keys.pop().unwrap();
+                let v = node.values.pop().unwrap();
+                let h = node.hashes.pop().unwrap();
+                node.tree_size -= 1;
+                node.tree_hash -= h;
+                (k, v, h)
+            }
+        }
+        // return:
+        // - the hash diff
+        // - the value at the key that was removed, if there was one
+        fn aux<K: Ord, V>(node: &mut Node<K, V>, key: &K) -> (Fingerprint, Option<V>) {
+            match node.keys.binary_search(key) {
+                Ok(index) => {
+                    if let Some(children) = node.children.as_mut() {
+                        // internal node
+                        // we need to replace key, value hash with a new separator; we can find it
+                        // in the left or right sub-tree
+                        let (prev_k, prev_v, prev_h) = rightmost_child(&mut children[index]);
+                        node.keys[index] = prev_k;
+                        let v = std::mem::replace(&mut node.values[index], prev_v);
+                        let h = std::mem::replace(&mut node.hashes[index], prev_h);
+                        node.tree_size -= 1;
+                        node.tree_hash -= h;
+                        node.rebalance_after_deletion(index);
+                        (h, Some(v))
+                    } else {
+                        // leaf node
+                        node.keys.remove(index);
+                        let v = node.values.remove(index);
+                        let h = node.hashes.remove(index);
+                        node.tree_size -= 1;
+                        node.tree_hash -= h;
+                        (h, Some(v))
+                    }
+                }
+                Err(index) => {
+                    if let Some(children) = node.children.as_mut() {
+                        // internal node
+                        let (diff_hash, ret) = aux(&mut children[index], key);
+                        if ret.is_some() {
+                            node.tree_size -= 1;
+                        }
+                        node.tree_hash -= diff_hash;
+                        node.rebalance_after_deletion(index);
+                        (diff_hash, ret)
+                    } else {
+                        // leaf node
+                        (Fingerprint::ZERO, None)
+                    }
+                }
+            }
+        }
+        let ret = aux(&mut self.root, key).1;
+        trace!(
+            "Updated state after removal; global hash is now {}",
+            self.root.tree_hash
+        );
+        ret
+    }
+
+    pub fn check_invariants(&self) {
+        // return:
+        // - the cumulated hash of the sub-tree
+        // - the number of nodes of the sub-tree
+        // - the height of the sub-tree
+        fn aux<'a, K: Hash + Ord, V: Hash>(
+            node: &'a Node<K, V>,
+            mut min: Option<&'a K>,
+            max: Option<&K>,
+        ) -> (Fingerprint, usize, usize) {
+            let mut cum_hash = Fingerprint::ZERO;
+            let mut tot_size = 0;
+            let mut max_height = 1;
+            // check node size
+            if min.is_some() || max.is_some() {
+                // this is not the root
+                assert!(
+                    node.keys.len() >= MIN_CAPACITY,
+                    "minimum node size invariant violated"
+                );
+            }
+            // check order
+            if let Some(min) = min {
+                assert!(min <= &node.keys[0], "order invariant violated");
+            }
+            for i in 1..node.keys.len() {
+                assert!(node.keys[i - 1] <= node.keys[i], "order invariant violated");
+            }
+            if let Some(max) = max {
+                assert!(node.keys.last().unwrap() <= max, "order invariant violated");
+            }
+            for i in 0..node.keys.len() {
+                // child before key
+                if let Some(children) = node.children.as_ref() {
+                    let next_max = Some(&node.keys[i]);
+                    let (child_hash, child_size, child_height) = aux(&children[i], min, next_max);
+                    cum_hash += child_hash;
+                    tot_size += child_size;
+                    if max_height != 1 {
+                        assert_eq!(child_height, max_height, "height invariant violated");
+                    }
+                    max_height = child_height;
+                    min = next_max;
+                }
+                // key
+                let hash = hash(&node.keys[i], &node.values[i]);
+                assert_eq!(hash, node.hashes[i], "hash cache invalid");
+                cum_hash += hash;
+                tot_size += 1;
+            }
+            // child after last key
+            if let Some(children) = node.children.as_ref() {
+                let (child_hash, child_size, child_height) =
+                    aux(children.last().unwrap(), min, max);
+                cum_hash += child_hash;
+                tot_size += child_size;
+                if max_height != 1 {
+                    assert_eq!(child_height, max_height, "height invariant violated");
+                }
+            }
+            assert_eq!(cum_hash, node.tree_hash, "hash invariant violated");
+            assert_eq!(tot_size, node.tree_size, "size invariant violated");
+            (cum_hash, tot_size, max_height + 1)
+        }
+        aux(&self.root, None, None);
+    }
+}
+
+impl<K, V> PartialEq for FingerprintTree<K, V> {
+    fn eq(&self, other: &Self) -> bool {
+        self.root.tree_hash == other.root.tree_hash
+    }
+}
+
+impl<K, V> Eq for FingerprintTree<K, V> {}
+
+impl<K: std::fmt::Debug, V: std::fmt::Debug> std::fmt::Debug for FingerprintTree<K, V> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.debug_map().entries(self.iter()).finish()
+    }
+}
+
+impl<K: Hash + Ord, V: Hash> FingerprintTree<K, V> {
+    /// Bundled `(count, Fingerprint)` aggregate over a range of keys: Def. 3.5's `A(S) = (|S|,
+    /// Σ(S))`, answered in a single `O(log n)` tree walk from the per-subtree cached
+    /// `tree_size`/`tree_hash` (see the internal `Node` type), which are already updated together in lockstep on
+    /// every mutation. This is [`Rsos::aggregate`](crate::Rsos::aggregate)'s realization; `hash`
+    /// below is a thin wrapper discarding the count half for callers that only need the
+    /// [`Fingerprint`].
+    pub fn range_aggregate<R: RangeBounds<K>>(&self, range: &R) -> (usize, Fingerprint) {
+        fn aux<'a, K: Ord, V, R: RangeBounds<K>>(
+            node: &'a Node<K, V>,
+            range: &R,
+            mut lower_bound: Option<&'a K>,
+            upper_bound: Option<&K>,
+        ) -> (usize, Fingerprint) {
+            // check if the lower-bound is included in the range
+            let lower_bound_included = match range.start_bound() {
+                Bound::Unbounded => true,
+                Bound::Included(key) | Bound::Excluded(key) => {
+                    if let Some(lower_bound) = lower_bound {
+                        key < lower_bound
+                    } else {
+                        false
+                    }
+                }
+            };
+            // check if the upper-bound is included in the range
+            let upper_bound_included = match range.end_bound() {
+                Bound::Unbounded => true,
+                Bound::Included(key) | Bound::Excluded(key) => {
+                    if let Some(upper_bound) = upper_bound {
+                        key > upper_bound
+                    } else {
+                        false
+                    }
+                }
+            };
+            // if both lower and upper bounds are included in the range, just use the tree
+            // size/hash invariants
+            if lower_bound_included && upper_bound_included {
+                return (node.tree_size, node.tree_hash);
+            }
+            // otherwise, recurse in the relevant sub-trees
+
+            let mut cum_size = 0;
+            let mut cum_hash = Fingerprint::ZERO;
+            let mut i = 0;
+            while i < node.keys.len() && node.keys[i].rcmp(range) == RangeOrdering::Below {
+                i += 1;
+            }
+            while i < node.keys.len() && node.keys[i].rcmp(range) == RangeOrdering::Inside {
+                let cur_bound = Some(&node.keys[i]);
+                if let Some(children) = node.children.as_ref() {
+                    let (child_size, child_hash) = aux(&children[i], range, lower_bound, cur_bound);
+                    cum_size += child_size;
+                    cum_hash += child_hash;
+                }
+                cum_hash += node.hashes[i];
+                cum_size += 1;
+                lower_bound = cur_bound;
+                i += 1;
+            }
+            if let Some(children) = node.children.as_ref() {
+                let (child_size, child_hash) = aux(&children[i], range, lower_bound, upper_bound);
+                cum_size += child_size;
+                cum_hash += child_hash;
+            }
+            (cum_size, cum_hash)
+        }
+        aux(&self.root, range, None, None)
+    }
+
+    /// Cumulated [`Fingerprint`] over a range of keys: the 256-bit additive combination
+    /// (see [`crate::fingerprint`]) of the per-element hashes of every element in the range,
+    /// answered in `O(log n)` from the per-subtree cached hashes. `pub` — it is reconciliation
+    /// mechanism (drives range-based-set-reconciliation protocols such as this workspace's
+    /// `rbsr`-to-be), not general-purpose public API, but reachable across the crate boundary now
+    /// that `FingerprintTree` lives in its own crate.
+    ///
+    /// Thin wrapper over [`range_aggregate`](Self::range_aggregate), keeping this exact signature
+    /// and return value for existing simple callers that only need the fingerprint.
+    pub fn hash<R: RangeBounds<K>>(&self, range: &R) -> Fingerprint {
+        self.range_aggregate(range).1
+    }
+
+    /// Position of `key` in the in-order sequence if present, or the position it would occupy
+    /// after insertion otherwise. This realizes Def. 3.9's `Rank` operation (see
+    /// [`Rsos::rank`](crate::Rsos::rank)); `pub` so range-based-set-reconciliation protocol
+    /// crates outside `rsos` can drive it.
+    pub fn insertion_position(&self, key: &K) -> usize {
+        fn aux<K: Ord, V>(node: &Node<K, V>, key: &K) -> usize {
+            if let Some(children) = node.children.as_ref() {
+                let mut index = 0;
+                for i in 0..node.keys.len() {
+                    let cmp = key.cmp(&node.keys[i]);
+                    if cmp == Ordering::Less {
+                        // recurse left to key
+                        return index + aux(&children[i], key);
+                    }
+                    // pass sub-tree
+                    index += children[i].tree_size;
+                    if cmp == Ordering::Equal {
+                        // found key
+                        return index;
+                    }
+                    // pass node
+                    index += 1;
+                }
+                index + aux(children.last().unwrap(), key)
+            } else {
+                match node.keys.binary_search(key) {
+                    Ok(index) => index,
+                    Err(index) => index,
+                }
+            }
+        }
+        aux(&self.root, key)
+    }
+
+    /// Reference to the key at the given in-order position. Panics if out of bounds. This
+    /// realizes Def. 3.9's `Select` operation (see [`Rsos::select`](crate::Rsos::select));
+    /// `pub` so range-based-set-reconciliation protocol crates outside `rsos` can drive it.
+    pub fn key_at(&self, index: usize) -> &K {
+        fn aux<K: Ord, V>(node: &Node<K, V>, mut index: usize) -> &K {
+            if let Some(children) = node.children.as_ref() {
+                for i in 0..node.keys.len() {
+                    if index < children[i].tree_size {
+                        // recurse
+                        return aux(&children[i], index);
+                    }
+                    // pass sub-tree
+                    index -= children[i].tree_size;
+                    // check node
+                    if index == 0 {
+                        return &node.keys[i];
+                    }
+                    // pass node
+                    index -= 1;
+                }
+                aux(children.last().unwrap(), index)
+            } else {
+                &node.keys[index]
+            }
+        }
+        aux(&self.root, index)
+    }
+
+    /// Number of elements in the tree.
+    pub fn len(&self) -> usize {
+        self.root.tree_size
+    }
+
+    /// Whether the tree holds no elements.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+}
+
+pub struct ItemRange<'a, K, V, R: RangeBounds<K>> {
+    range: &'a R,
+    stack: Vec<(&'a Node<K, V>, usize)>,
+}
+
+impl<'a, K: Ord, V, R: RangeBounds<K>> Iterator for ItemRange<'a, K, V, R> {
+    type Item = (&'a K, &'a V);
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some((node, children_passed)) = self.stack.pop() {
+            #[allow(clippy::collapsible_if)]
+            if 0 < children_passed && children_passed <= node.keys.len() {
+                if !self.range.contains(&node.keys[children_passed - 1]) {
+                    self.stack.clear();
+                    return None;
+                }
+            }
+            if children_passed <= node.keys.len() {
+                self.stack.push((node, children_passed + 1));
+                if let Some(children) = node.children.as_ref() {
+                    self.stack.push((&children[children_passed], 0));
+                }
+            }
+            if 0 < children_passed && children_passed <= node.keys.len() {
+                Some((
+                    &node.keys[children_passed - 1],
+                    &node.values[children_passed - 1],
+                ))
+            } else {
+                self.next()
+            }
+        } else {
+            None
+        }
+    }
+}
+
+impl<K: Ord, V> FingerprintTree<K, V> {
+    pub fn get_range<'a, R: RangeBounds<K>>(&'a self, range: &'a R) -> ItemRange<'a, K, V, R> {
+        let mut stack = Vec::new();
+        let mut node = self.root.as_ref();
+        // traverse interior nodes
+        'main_loop: while let Some(children) = node.children.as_ref() {
+            for i in 0..node.keys.len() {
+                match node.keys[i].rcmp(range) {
+                    RangeOrdering::Below => (),
+                    RangeOrdering::Above => {
+                        node = &children[i];
+                        continue 'main_loop;
+                    }
+                    RangeOrdering::Inside => {
+                        stack.push((node, i + 1));
+                        node = &children[i];
+                        continue 'main_loop;
+                    }
+                    RangeOrdering::Empty => break,
+                }
+            }
+            node = children.last().as_ref().unwrap();
+        }
+        // traverse leaf node
+        for i in 0..node.keys.len() {
+            match node.keys[i].rcmp(range) {
+                RangeOrdering::Below => (),
+                RangeOrdering::Above | RangeOrdering::Empty => {
+                    break;
+                }
+                RangeOrdering::Inside => {
+                    stack.push((node, i + 1));
+                    break;
+                }
+            }
+        }
+        ItemRange { range, stack }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::ops::RangeBounds;
+
+    use rand::{seq::SliceRandom, Rng, SeedableRng};
+
+    use crate::fingerprint::Fingerprint;
+
+    use super::FingerprintTree;
+
+    #[test]
+    fn test_simple() {
+        let mut rng = rand::rngs::StdRng::seed_from_u64(42);
+        let mut tree: FingerprintTree<u64, u64> = FingerprintTree::new();
+        for _ in 1..=100 {
+            tree.insert(rng.gen(), rng.gen());
+            tree.check_invariants();
+        }
+    }
+
+    #[test]
+    fn test_hash() {
+        // empty
+        let mut tree = FingerprintTree::new();
+        assert_eq!(tree.hash(&..), Fingerprint::ZERO);
+        tree.check_invariants();
+
+        // 1 value
+        tree.insert(50, "Hello");
+        tree.check_invariants();
+        let hash1 = tree.hash(&..);
+        assert_ne!(hash1, Fingerprint::ZERO);
+
+        // 2 values
+        tree.insert(25, "World!");
+        tree.check_invariants();
+        let hash2 = tree.hash(&..);
+        assert_ne!(hash2, Fingerprint::ZERO);
+        assert_ne!(hash2, hash1);
+
+        // 3 values
+        tree.insert(75, "Everyone!");
+        tree.check_invariants();
+        let hash3 = tree.hash(&..);
+        assert_ne!(hash3, Fingerprint::ZERO);
+        assert_ne!(hash3, hash1);
+        assert_ne!(hash3, hash2);
+
+        // back to 2 values
+        tree.remove(&75);
+        tree.check_invariants();
+        let hash4 = tree.hash(&..);
+        assert_eq!(hash4, hash2);
+    }
+
+    #[test]
+    fn big_test() {
+        let mut rng = rand::rngs::StdRng::seed_from_u64(42);
+        let mut tree1 = FingerprintTree::new();
+        let mut key_values = Vec::new();
+
+        let mut expected_hash = Fingerprint::ZERO;
+
+        // add some
+        for _ in 0..1000 {
+            let key: u64 = rng.gen();
+            let value: u64 = rng.gen();
+            let old = tree1.insert(key, value);
+            assert!(old.is_none());
+            tree1.check_invariants();
+            expected_hash += super::hash(&key, &value);
+            assert_eq!(tree1.hash(&..), expected_hash);
+            key_values.push((key, value));
+        }
+
+        assert_eq!(tree1.get(&rng.gen()), None);
+        assert_eq!(tree1.get(&key_values[0].0), Some(&key_values[0].1));
+
+        // test get_mut
+        tree1.with_mut(&rng.gen(), |v| assert_eq!(v, None));
+        let key: u64 = rng.gen::<u64>();
+        let value1: u64 = rng.gen();
+        let value2: u64 = rng.gen();
+        tree1.insert(key, value1);
+        tree1.with_mut(&key, |v| *v.unwrap() = value2);
+        tree1.check_invariants();
+        expected_hash += super::hash(&key, &value2);
+        key_values.push((key, value2));
+
+        // in the tree, the items should now be sorted
+        key_values.sort();
+
+        let tree2 = FingerprintTree::from_iter(key_values.iter().copied());
+        assert_eq!(tree1, tree2);
+
+        // check for partial ranges
+        let mid = key_values[key_values.len() / 2].0;
+        assert_ne!(tree1.hash(&(mid..)), tree1.hash(&..));
+        assert_ne!(tree1.hash(&..mid), tree1.hash(&..));
+        assert_eq!(tree1.hash(&..mid) + tree1.hash(&(mid..)), tree1.hash(&..));
+
+        for _ in 0..100 {
+            let index = rng.gen::<usize>() % key_values.len();
+            let key = key_values[index].0;
+            assert_eq!(*tree1.key_at(index), key);
+            assert_eq!(tree1.position(&key), Some(index));
+            assert_eq!(tree1.insertion_position(&key), index);
+        }
+        assert_eq!(tree1.insertion_position(&0), 0);
+        assert_eq!(tree1.insertion_position(&u64::MAX), tree1.len());
+
+        // test get_range
+        let from_index = rng.gen_range(0..key_values.len());
+        let to_index = rng.gen_range(from_index..key_values.len());
+        let from_key = tree1.key_at(from_index);
+        let to_key = tree1.key_at(to_index);
+        fn test_range<
+            R: RangeBounds<u64>,
+            SI: std::slice::SliceIndex<[(u64, u64)], Output = [(u64, u64)]>,
+        >(
+            key_values: &[(u64, u64)],
+            tree: &FingerprintTree<u64, u64>,
+            range: R,
+            slice_index: SI,
+        ) {
+            assert_eq!(
+                tree.get_range(&range)
+                    .map(|(k, v)| (*k, *v))
+                    .collect::<Vec<_>>(),
+                key_values[slice_index]
+            );
+        }
+        test_range(&key_values, &tree1, from_key..to_key, from_index..to_index);
+        test_range(
+            &key_values,
+            &tree1,
+            from_key..=to_key,
+            from_index..=to_index,
+        );
+        test_range(&key_values, &tree1, ..to_key, ..to_index);
+        test_range(&key_values, &tree1, ..=to_key, ..=to_index);
+        test_range(&key_values, &tree1, from_key.., from_index..);
+        test_range(&key_values, &tree1, .., ..);
+
+        // NOTE: the diff-protocol exchange between `tree1`/`tree2` used to be exercised here too,
+        // but the anti-entropy protocol (`proto`/future `rbsr`) lives in a different crate now
+        // (this crate is a leaf with no dependency on it) — that coverage lives in the
+        // `reconcile` crate's own tests (`tests/diff.rs`, `tests/proptest_hrtree.rs`) instead.
+
+        // remove everything one-by-one
+        key_values.shuffle(&mut rng);
+        for (key, value) in key_values {
+            let value2 = tree1.remove(&key);
+            tree1.check_invariants();
+            assert_eq!(value2, Some(value));
+            expected_hash -= super::hash(&key, &value);
+            assert_eq!(tree1.hash(&..), expected_hash);
+        }
+    }
+
+    /// The bundled `range_aggregate(range).0` (Def. 3.5's `A(S) = (|S|, Σ(S))`, the count half)
+    /// must agree with the pre-existing, independently-computed `get_range(range).count()` — the
+    /// two-call approach `range_aggregate` replaces — over a handful of ranges (empty, full,
+    /// partial) on a tree with several dozen inserted keys. Also checks that the fingerprint half
+    /// still matches `hash(range)` exactly, since `hash` is now a thin wrapper over it.
+    #[test]
+    fn range_aggregate_count_matches_get_range_count() {
+        let mut rng = rand::rngs::StdRng::seed_from_u64(7);
+        let mut tree: FingerprintTree<u32, u32> = FingerprintTree::new();
+        let mut keys = Vec::new();
+        for _ in 0..75 {
+            let key: u32 = rng.gen();
+            let value: u32 = rng.gen();
+            tree.insert(key, value);
+            keys.push(key);
+        }
+        keys.sort_unstable();
+        tree.check_invariants();
+
+        let check = |range: &dyn Fn() -> (std::ops::Bound<u32>, std::ops::Bound<u32>)| {
+            let range = range();
+            let (count, agg_hash) = tree.range_aggregate(&range);
+            assert_eq!(
+                count,
+                tree.get_range(&range).count(),
+                "range_aggregate count disagrees with get_range().count() for {range:?}"
+            );
+            assert_eq!(
+                agg_hash,
+                tree.hash(&range),
+                "range_aggregate fingerprint disagrees with hash() for {range:?}"
+            );
+        };
+
+        // empty range: nothing between a key and itself, excluded
+        let mid = keys[keys.len() / 2];
+        check(&|| {
+            (
+                std::ops::Bound::Included(mid),
+                std::ops::Bound::Excluded(mid),
+            )
+        });
+        // full range
+        check(&|| (std::ops::Bound::Unbounded, std::ops::Bound::Unbounded));
+        // partial ranges
+        let lo = keys[keys.len() / 4];
+        let hi = keys[3 * keys.len() / 4];
+        check(&|| (std::ops::Bound::Included(lo), std::ops::Bound::Excluded(hi)));
+        check(&|| (std::ops::Bound::Excluded(lo), std::ops::Bound::Included(hi)));
+        check(&|| (std::ops::Bound::Unbounded, std::ops::Bound::Excluded(hi)));
+        check(&|| (std::ops::Bound::Included(lo), std::ops::Bound::Unbounded));
+        // an empty tree
+        let empty: FingerprintTree<u32, u32> = FingerprintTree::new();
+        let (count, hash) = empty.range_aggregate(&..);
+        assert_eq!(count, 0);
+        assert_eq!(hash, Fingerprint::ZERO);
+    }
+}
