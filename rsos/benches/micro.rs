@@ -226,9 +226,6 @@ fn fingerprint_tree_map_range_fingerprint(c: &mut Criterion) {
     }
 }
 
-// In-memory cost of a dated replica (`FingerprintTreeMap<K, Entry<Timestamp, V>>`) against
-// the value-only one (`FingerprintTreeMap<K, State<V>>`).
-// Criterion times the fill at growing sizes; the report below adds bytes per entry.
 
 criterion_group!(
     benches,
