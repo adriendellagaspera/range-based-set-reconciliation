@@ -53,7 +53,17 @@ cargo add rbsr
 
 Provides `initial_ranges`, `protocol_round`, refinement policies, and the read-only `RsosView` contract used by the reconciliation driver.
 
+## Benchmarks
+
+Benchmarks live with the crate whose behavior they measure:
+
+- `cargo bench -p rsos --bench contention` measures `FingerprintTreeMap` write contention against a `BTreeMap` control behind the same lock.
+- `cargo bench -p rbsr --bench history_independence` verifies that superseded mutation history does not change the RBSR trace once current states are identical, and measures reconciliation CPU cost.
+
+These are implementation benchmarks for the shipped RSOS/RBSR crates. Comparative algorithm research, transport projections, and Pareto-frontier experiments belong in `rbsr-research`; `ReplicatedMap`, membership, persistence, and network-runtime benchmarks belong in `reconcile-rs`.
+
 ## Development
+
 
 The workspace targets Rust 1.85+.
 

@@ -16,7 +16,12 @@ serde = { version = "1.0.192", features = ["derive"] }
 tracing = "0.1.40"
 rand = "0.8.5"
 
+[[bench]]
+name = "history_independence"
+harness = false
+
 [dev-dependencies]
+criterion = "0.5.1"
 proptest = "1.11.0"
 
 [lints.rust]
