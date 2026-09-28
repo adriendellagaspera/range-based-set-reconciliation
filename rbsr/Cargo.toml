@@ -20,6 +20,10 @@ rand = "0.8.5"
 name = "history_independence"
 harness = false
 
+[[bench]]
+name = "protocol"
+harness = false
+
 [dev-dependencies]
 criterion = "0.5.1"
 proptest = "1.11.0"
