@@ -404,11 +404,52 @@ fn print_order_effect(points: &[Point]) {
     }
 }
 
-// Printed report: counted work, throughput intervals, ratio trend, model fit, and order effect.
+#[cfg(rbsr_internal_testing)]
+fn print_counted_summary(prefill: usize) {
+    use rsos::counters;
+
+    let mut map = FingerprintTreeMap::<u64, u64>::new();
+    for key in 0..prefill as u64 {
+        map.insert(key, key);
+    }
+
+    const PROBE: u64 = 4_096;
+    let before = counters::snapshot();
+    for i in 0..PROBE {
+        map.insert(prefill as u64 + i, i);
+    }
+    let fresh = (counters::snapshot() - before).aggregate_updates;
+
+    let before = counters::snapshot();
+    for i in 0..PROBE {
+        map.insert(i, i + 1);
+    }
+    let overwrite = (counters::snapshot() - before).aggregate_updates;
+
+    println!(
+        "[contention] Counted (machine-independent), map of {prefill} entries, {PROBE} probes:"
+    );
+    println!(
+        "[contention] {:>34} {:.2}   (BTreeMap control: 0.00, by construction)",
+        "aggregate updates / fresh insert",
+        fresh as f64 / PROBE as f64,
+    );
+    println!(
+        "[contention] {:>34} {:.2}   -- one per level of the key's root path",
+        "aggregate updates / overwrite",
+        overwrite as f64 / PROBE as f64,
+    );
+}
+
+// Printed report: counted work (when the private RSOS measurement seam is enabled), throughput
+// intervals, ratio trend, model fit, and order effect.
 fn print_contention_report() {
     let trials = env_or("CONTENTION_TRIALS", TRIALS);
     let ops = env_or("CONTENTION_OPS", OPS_PER_WRITER);
     let prefill = env_or("CONTENTION_PREFILL", PREFILL);
+
+    #[cfg(rbsr_internal_testing)]
+    print_counted_summary(prefill);
 
     let points = run_contention_sweep(&writer_counts(), trials, ops, prefill);
 
