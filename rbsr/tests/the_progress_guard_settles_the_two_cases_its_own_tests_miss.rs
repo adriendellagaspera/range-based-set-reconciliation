@@ -9,7 +9,7 @@
 //! The driver must convert non-narrowing split decisions to enumeration and still terminate.
 
 #![forbid(unsafe_code)]
-#![cfg(reconcile_internal_testing)]
+#![cfg(rbsr_internal_testing)]
 
 use rand::rngs::StdRng;
 use rand::SeedableRng;
