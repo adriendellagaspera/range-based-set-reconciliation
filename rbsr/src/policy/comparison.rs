@@ -49,15 +49,15 @@ impl Comparison {
 
     /// Test-only access to the full local [`Aggregate`] for probe/oracle tests.
     /// Shipped policies intentionally use [`span`](Self::span) and [`remote_size`](Self::remote_size).
-    #[cfg(reconcile_internal_testing)]
+    #[cfg(rbsr_internal_testing)]
     pub const fn local_for_testing(&self) -> Aggregate {
         self.local
     }
 
-    /// **Test-only, `cfg(reconcile_internal_testing)`-gated.** The whole **remote** [`Aggregate`],
+    /// **Test-only, `cfg(rbsr_internal_testing)`-gated.** The whole **remote** [`Aggregate`],
     /// fingerprint included — the peer-advertised counterpart to
     /// [`local_for_testing`](Self::local_for_testing), same caveats.
-    #[cfg(reconcile_internal_testing)]
+    #[cfg(rbsr_internal_testing)]
     pub const fn remote_for_testing(&self) -> Aggregate {
         self.remote
     }
