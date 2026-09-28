@@ -12,7 +12,7 @@
 //! rather than something they lean on: catching a regression here, at the policy, is cheaper than
 //! catching it as a forced-`Enumerate` fallback at the driver.
 //! The oracle-coupled probe is deliberately excluded — it exists to violate this law,
-//! `cfg(reconcile_internal_testing)`-gated so it can never ship.
+//! `cfg(rbsr_internal_testing)`-gated so it can never ship.
 
 #![forbid(unsafe_code)]
 

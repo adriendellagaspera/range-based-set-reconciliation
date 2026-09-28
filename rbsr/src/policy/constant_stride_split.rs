@@ -6,13 +6,13 @@
 // except according to those terms.
 
 //! [`RefinementPolicy`](super::RefinementPolicy) for
-//! [`ConstantStrideSplit`](super::ConstantStrideSplit) — `cfg(reconcile_internal_testing)`-gated,
+//! [`ConstantStrideSplit`](super::ConstantStrideSplit) — `cfg(rbsr_internal_testing)`-gated,
 //! see the type's own docs for what it controls for.
 
 use super::cutoffs::shared_cutoffs;
 use super::{Comparison, Decision, RefinementPolicy, SplitStride};
 
-/// **Test-only probe, `cfg(reconcile_internal_testing)`-gated.** A fixed stride for every
+/// **Test-only probe, `cfg(rbsr_internal_testing)`-gated.** A fixed stride for every
 /// range, however wide.
 /// A constant is trivially "a function of the data alone", so this satisfies the
 /// oracle-independence [`Comparison`]'s law is about, and cannot be accused of reading the digest.

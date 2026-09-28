@@ -22,7 +22,7 @@
 #![deny(missing_docs)]
 
 mod policy;
-#[cfg(reconcile_internal_testing)]
+#[cfg(rbsr_internal_testing)]
 mod probe_harness;
 mod protocol;
 mod rsos_view;
@@ -31,10 +31,10 @@ pub use policy::{
     Comparison, Decision, EnumerateBelowThreshold, FanOut, FixedFanOut, RefinementPolicy,
     SplitStride, SqrtFanOut,
 };
-#[cfg(reconcile_internal_testing)]
+#[cfg(rbsr_internal_testing)]
 pub use policy::{ConstantStrideSplit, SpanHashedStrideSplit, STRIDE_SPREAD};
 // Repository-only probe harness.
-#[cfg(reconcile_internal_testing)]
+#[cfg(rbsr_internal_testing)]
 pub use probe_harness::{
     balanced_swap, drive, drive_pair, Drive, NarrowStore, Termination, DRIVE_STORE_SIZE,
 };

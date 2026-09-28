@@ -5,7 +5,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-//! `reconcile_internal_testing`-only driving scaffolding for adversarial/oracle-dependent
+//! `rbsr_internal_testing`-only driving scaffolding for adversarial/oracle-dependent
 //! `RefinementPolicy` probes: a reduced-width store and a driver that **proves** a stall instead
 //! of inferring one from a round cap.
 //! Scope is the store and driver only — this crate carries no collision-rate tallying, confidence

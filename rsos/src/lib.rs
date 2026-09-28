@@ -22,9 +22,9 @@
 
 pub mod aggregate;
 // Repository-only measurement seam.
-#[cfg(reconcile_internal_testing)]
+#[cfg(rbsr_internal_testing)]
 pub mod counters;
-#[cfg(not(reconcile_internal_testing))]
+#[cfg(not(rbsr_internal_testing))]
 mod counters;
 pub mod encoding;
 pub mod fingerprint;

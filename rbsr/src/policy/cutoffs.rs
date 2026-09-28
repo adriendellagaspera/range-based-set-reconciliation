@@ -7,7 +7,7 @@
 // except according to those terms.
 
 //! [`shared_cutoffs`]: the enumeration cutoffs [`SqrtFanOut`](super::SqrtFanOut),
-//! [`FixedFanOut`](super::FixedFanOut) and, under `cfg(reconcile_internal_testing)`,
+//! [`FixedFanOut`](super::FixedFanOut) and, under `cfg(rbsr_internal_testing)`,
 //! [`ConstantStrideSplit`](super::ConstantStrideSplit)/[`SpanHashedStrideSplit`](super::SpanHashedStrideSplit)
 //! all share — private, since it is a shared implementation detail of those policies' `decide`,
 //! never a seam of its own.
