@@ -9,8 +9,8 @@
 //
 // The current states are held constant while `h`, the number of writes that happened and were
 // later superseded during a partition, varies. History construction and normalization happen before
-// the timed section. The benchmark asserts both current states and the exact algorithmic protocol trace are
-// identical across every `h`; Criterion then times only reconciliation of those current states.
+// the timed section. The benchmark asserts both current states and the exact algorithmic protocol
+// trace are identical across every `h`; Criterion then times only reconciliation of those current states.
 //
 // Defaults:
 //   n = 100_000 keys
@@ -111,10 +111,10 @@ fn apply_superseded_history(
 fn divergence_keys(n: usize, d: usize) -> Vec<u64> {
     let available = n
         .checked_sub(CHURN_KEYS)
-        .expect("RECONCILE_HISTORY_N must exceed the churn-key count");
+        .expect("RBSR_HISTORY_N must exceed the churn-key count");
     assert!(
         d < available,
-        "RECONCILE_HISTORY_D must leave room for distinct keys"
+        "RBSR_HISTORY_D must leave room for distinct keys"
     );
     let stride = available / (d + 1);
     assert!(stride > 0, "divergence-key stride must make progress");
@@ -178,8 +178,8 @@ fn history_sizes() -> Vec<usize> {
 }
 
 fn history_independence(c: &mut Criterion) {
-    let n = env_usize("RECONCILE_HISTORY_N", DEFAULT_N);
-    let d = env_usize("RECONCILE_HISTORY_D", DEFAULT_D);
+    let n = env_usize("RBSR_HISTORY_N", DEFAULT_N);
+    let d = env_usize("RBSR_HISTORY_D", DEFAULT_D);
     let histories = history_sizes();
     assert!(
         !histories.is_empty(),
