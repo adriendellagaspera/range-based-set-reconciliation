@@ -1,0 +1,25 @@
+name: import-history
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Import rsos/rbsr history
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git clone https://github.com/adriendellagaspera/reconcile-rs source
+          cd source
+          git fetch --tags --force
+          git filter-branch --prune-empty --tree-filter '
+            find . -mindepth 1 -maxdepth 1 ! -name rsos ! -name rbsr ! -name .git -exec rm -rf {} +
+          ' -- --all
+          git remote add target "https://x-access-token:${GH_TOKEN}@github.com/adriendellagaspera/range-based-set-reconciliation.git"
+          git push target HEAD:main --force
