@@ -5,6 +5,8 @@ on:
     tags:
       - "rsos-v*"
       - "rbsr-v*"
+  pull_request:
+    types: [opened, synchronize, reopened]
 
 permissions:
   contents: write
@@ -17,6 +19,12 @@ env:
 
 jobs:
   publish:
+    if: >-
+      github.event_name == 'push' ||
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.head.repo.full_name == github.repository &&
+       (startsWith(github.head_ref, 'release-rsos-v') ||
+        startsWith(github.head_ref, 'release-rbsr-v')))
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -43,6 +51,7 @@ jobs:
           test "$actual" = "$expected"
           echo "package=$package" >> "$GITHUB_OUTPUT"
           echo "version=$actual" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
       - name: Test package
         run: cargo test -p "${{ steps.tag.outputs.package }}"
@@ -77,9 +86,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          tag="${GITHUB_REF_NAME}"
+          tag="${{ steps.tag.outputs.tag }}"
           if gh release view "$tag" >/dev/null 2>&1; then
             echo "GitHub release $tag already exists"
           else
-            gh release create "$tag" --title "$tag" --generate-notes
+            gh release create "$tag" --target main --title "$tag" --generate-notes
           fi
