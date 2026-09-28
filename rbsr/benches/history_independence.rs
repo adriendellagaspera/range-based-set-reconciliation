@@ -30,11 +30,12 @@ use std::hint::black_box;
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 
 mod support;
-use support::protocol::{reconcile, Cost, Counting, Queries};
+
 use rand::rngs::StdRng;
 use rand::SeedableRng;
 use rbsr::{FanOut, FixedFanOut, RefinementPolicy};
 use rsos::FingerprintTreeMap;
+use support::protocol::{reconcile, Cost, Counting, Queries};
 
 const DEFAULT_N: usize = 100_000;
 const DEFAULT_D: usize = 100;
