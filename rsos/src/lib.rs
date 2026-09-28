@@ -15,8 +15,16 @@
 //! computed from this crate's canonical [`encoding`], so elements require
 //! [`Serialize`](serde::Serialize) rather than [`Hash`](std::hash::Hash).
 //!
-//! The API follows Amparore, *Range-Based Set Reconciliation via Range-Summarizable
-//! Order-Statistics Stores* (arXiv:2603.19820).
+//! # Origin
+//!
+//! RSOS is not a concept introduced by this crate. The storage abstraction follows Elvio G.
+//! Amparore, *Range-Based Set Reconciliation via Range-Summarizable Order-Statistics Stores*
+//! (2026, arXiv:2603.19820). This crate provides an independent Rust implementation of that
+//! abstraction.
+//!
+//! RSOS is motivated by the Range-Based Set Reconciliation protocol described by Aljoscha Meyer,
+//! *Range-Based Set Reconciliation* (IEEE SRDS 2023, DOI: 10.1109/SRDS60354.2023.00016;
+//! arXiv:2212.13567).
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
 
