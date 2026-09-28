@@ -30,7 +30,7 @@
 //! with the tree's own boundaries. Reported per thread and per operation like the write counter,
 //! and machine-independent for the same reason.
 //! # Cost when disabled
-//! Off unless `--cfg reconcile_internal_testing` is in `RUSTFLAGS`. The call
+//! Off unless `--cfg rbsr_internal_testing` is in `RUSTFLAGS`. The call
 //! sites carry no `#[cfg]`: they call `record_aggregate_update`, which is this module's live one or
 //! its empty-bodied one, chosen by `cfg` here rather than at each call site.
 //! # Threading
@@ -39,20 +39,20 @@
 //! explain. Read them from a single-threaded pass — the count is deterministic, so one such pass
 //! characterizes every writer count.
 
-#[cfg(reconcile_internal_testing)]
+#[cfg(rbsr_internal_testing)]
 pub use enabled::{snapshot, Counts};
 
-#[cfg(not(reconcile_internal_testing))]
+#[cfg(not(rbsr_internal_testing))]
 pub(crate) use disabled::{
     record_aggregate_early_exit, record_aggregate_node_visit, record_aggregate_update,
 };
-#[cfg(reconcile_internal_testing)]
+#[cfg(rbsr_internal_testing)]
 pub(crate) use enabled::{
     record_aggregate_early_exit, record_aggregate_node_visit, record_aggregate_update,
 };
 
 /// The live half: what the crate compiles against when the `--cfg` is set.
-#[cfg(reconcile_internal_testing)]
+#[cfg(rbsr_internal_testing)]
 pub mod enabled {
     use std::cell::Cell;
     use std::ops::Sub;
@@ -132,7 +132,7 @@ pub mod enabled {
 }
 
 /// The no-op half: what the crate compiles against when the `--cfg` is absent.
-#[cfg(not(reconcile_internal_testing))]
+#[cfg(not(rbsr_internal_testing))]
 mod disabled {
     /// Records nothing — an empty body, so every call site vanishes.
     #[inline(always)]
@@ -152,7 +152,7 @@ mod disabled {
 /// computed property of the tree, so a counter that drifts — double-counting, missing a
 /// maintenance path, or straying onto the read path — fails rather than quietly reporting a
 /// plausible number.
-#[cfg(all(test, reconcile_internal_testing))]
+#[cfg(all(test, rbsr_internal_testing))]
 mod tests {
     use super::snapshot;
     use crate::FingerprintTreeMap;
