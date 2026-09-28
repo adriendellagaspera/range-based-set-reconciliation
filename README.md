@@ -57,6 +57,7 @@ Provides `initial_ranges`, `protocol_round`, refinement policies, and the read-o
 
 Benchmarks live with the crate whose behavior they measure:
 
+- `cargo bench -p rsos --bench micro` measures `FingerprintTreeMap` construction, fill, insert/remove, and range-aggregate cost against `BTreeMap` controls where applicable.
 - `cargo bench -p rsos --bench contention` measures `FingerprintTreeMap` write contention against a `BTreeMap` control behind the same lock.
 - `cargo bench -p rbsr --bench history_independence` verifies that superseded mutation history does not change the RBSR trace once current states are identical, and measures reconciliation CPU cost.
 
