@@ -69,10 +69,7 @@ fn stores(
     n: usize,
     d: usize,
     clustering: Clustering,
-) -> (
-    FingerprintTreeMap<u64, u64>,
-    FingerprintTreeMap<u64, u64>,
-) {
+) -> (FingerprintTreeMap<u64, u64>, FingerprintTreeMap<u64, u64>) {
     let missing = differing_keys(n, d, clustering);
     let mut left = FingerprintTreeMap::new();
     let mut right = FingerprintTreeMap::new();
