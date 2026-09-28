@@ -59,6 +59,7 @@ Benchmarks live with the crate whose behavior they measure:
 
 - `cargo bench -p rsos --bench micro` measures `FingerprintTreeMap` construction, fill, insert/remove, and range-aggregate cost against `BTreeMap` controls where applicable.
 - `cargo bench -p rsos --bench contention` measures `FingerprintTreeMap` write contention against a `BTreeMap` control behind the same lock.
+- `cargo bench -p rbsr --bench protocol` measures intrinsic RBSR work across store size, difference size, and clustering: protocol messages, ranges, IDLIST outcomes, RSOS queries, and CPU cost.
 - `cargo bench -p rbsr --bench history_independence` verifies that superseded mutation history does not change the RBSR trace once current states are identical, and measures reconciliation CPU cost.
 
 These are implementation benchmarks for the shipped RSOS/RBSR crates. Comparative algorithm research, transport projections, and Pareto-frontier experiments belong in `rbsr-research`; `ReplicatedMap`, membership, persistence, and network-runtime benchmarks belong in `reconcile-rs`.
