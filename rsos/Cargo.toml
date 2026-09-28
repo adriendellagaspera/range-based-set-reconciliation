@@ -21,6 +21,10 @@ serde = { version = "1.0.192", features = ["derive"] }
 tracing = "0.1.40"
 
 [[bench]]
+name = "rsos"
+harness = false
+
+[[bench]]
 name = "contention"
 harness = false
 
