@@ -13,13 +13,16 @@ jobs:
       - name: Import rsos/rbsr history
         env:
           GH_TOKEN: ${{ github.token }}
+          FILTER_BRANCH_SQUELCH_WARNING: "1"
         run: |
           set -euo pipefail
           git clone https://github.com/adriendellagaspera/reconcile-rs source
           cd source
-          git fetch --tags --force
-          git filter-branch --prune-empty --tree-filter '
-            find . -mindepth 1 -maxdepth 1 ! -name rsos ! -name rbsr ! -name .git -exec rm -rf {} +
-          ' -- --all
+          git checkout main
+          git filter-branch --prune-empty --index-filter '
+            git ls-files -z |
+              grep -zvE "^(rsos|rbsr)/" |
+              xargs -0 -r git rm -r --cached --ignore-unmatch
+          ' -- main
           git remote add target "https://x-access-token:${GH_TOKEN}@github.com/adriendellagaspera/range-based-set-reconciliation.git"
-          git push target HEAD:main --force
+          git push target refs/heads/main:refs/heads/main --force
