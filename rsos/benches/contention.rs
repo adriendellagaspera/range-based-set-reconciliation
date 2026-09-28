@@ -22,11 +22,11 @@ use parking_lot::RwLock;
 
 mod support;
 
+use rsos::FingerprintTreeMap;
 use support::contention::{
     run_sweep, throughput_ops_per_sec, timed_concurrent_insert, ContentionTarget, Point,
 };
 use support::stats::{diff_ci, excludes_zero, summarize, Summary};
-use rsos::FingerprintTreeMap;
 
 // Writer-thread counts swept by default. `1, 2, 4` are below this machine's core count, `8, 16`
 // push past it deliberately — contention past the core count is exactly the regime a lock-free
