@@ -15,9 +15,17 @@
 //! [`RsosView`] is the read-only store contract and is implemented for every [`rsos::Rsos`].
 //! [`RefinementPolicy`] controls local refinement only; it is never negotiated on the wire.
 //!
-//! The implementation follows Meyer, *Range-Based Set Reconciliation* (arXiv:2212.13567) over the
-//! RSOS interface described by Amparore (arXiv:2603.19820). Equality uses both range cardinality and
-//! fingerprint.
+//! # Origin
+//!
+//! RBSR is not a protocol introduced by this crate. The implementation follows Aljoscha Meyer,
+//! *Range-Based Set Reconciliation* (IEEE SRDS 2023, DOI: 10.1109/SRDS60354.2023.00016;
+//! arXiv:2212.13567).
+//!
+//! The RSOS backend interface follows the abstraction formalized by Elvio G. Amparore,
+//! *Range-Based Set Reconciliation via Range-Summarizable Order-Statistics Stores* (2026,
+//! arXiv:2603.19820). This crate is an independent Rust implementation of those ideas.
+//!
+//! Equality uses both range cardinality and fingerprint.
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
 
