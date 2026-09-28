@@ -14,23 +14,23 @@
 use rsos::Aggregate;
 
 mod comparison;
-#[cfg(reconcile_internal_testing)]
+#[cfg(rbsr_internal_testing)]
 mod constant_stride_split;
 mod cutoffs;
 mod enumerate_below_threshold;
 mod fixed_fan_out;
 mod forwarding;
 mod params;
-#[cfg(reconcile_internal_testing)]
+#[cfg(rbsr_internal_testing)]
 mod span_hashed_stride_split;
 mod sqrt_fan_out;
 
-#[cfg(reconcile_internal_testing)]
+#[cfg(rbsr_internal_testing)]
 pub use constant_stride_split::ConstantStrideSplit;
 pub use enumerate_below_threshold::EnumerateBelowThreshold;
 pub use fixed_fan_out::FixedFanOut;
 pub use params::{FanOut, SplitStride};
-#[cfg(reconcile_internal_testing)]
+#[cfg(rbsr_internal_testing)]
 pub use span_hashed_stride_split::{SpanHashedStrideSplit, STRIDE_SPREAD};
 pub use sqrt_fan_out::SqrtFanOut;
 
@@ -52,7 +52,7 @@ pub use sqrt_fan_out::SqrtFanOut;
 /// default, public surface carries no accessor that returns a fingerprint or a full [`Aggregate`],
 /// so the violation is structurally unspellable from a default build rather than merely
 /// discouraged. `local_for_testing`/`remote_for_testing` (only compiled in under `--cfg
-/// reconcile_internal_testing`, so not linkable from this doc comment) reopen exactly that seam
+/// rbsr_internal_testing`, so not linkable from this doc comment) reopen exactly that seam
 /// under that cfg — for oracle-*coupled* probe policies used by repository tests, never for
 /// a shipped one in this crate.
 ///
