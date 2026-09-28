@@ -37,7 +37,7 @@ fn agreeing_aggregates_are_skipped_by_every_policy() {
 
 /// The `for_testing` seam round-trips exactly what `new` was given — the whole point being
 /// that a dependent crate's oracle-coupled probe policy sees the same `Aggregate` a driver built.
-#[cfg(reconcile_internal_testing)]
+#[cfg(rbsr_internal_testing)]
 #[test]
 fn for_testing_accessors_round_trip_the_constructed_aggregates() {
     let local = Aggregate::new(7, Fingerprint([1, 2, 3, 4]));
