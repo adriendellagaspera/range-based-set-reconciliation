@@ -226,7 +226,6 @@ fn fingerprint_tree_map_range_fingerprint(c: &mut Criterion) {
     }
 }
 
-
 criterion_group!(
     benches,
     fingerprint_tree_map_new,
