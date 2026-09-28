@@ -6,7 +6,7 @@
 // except according to those terms.
 
 //! [`RefinementPolicy`](super::RefinementPolicy) for
-//! [`SpanHashedStrideSplit`](super::SpanHashedStrideSplit) — `cfg(reconcile_internal_testing)`-gated,
+//! [`SpanHashedStrideSplit`](super::SpanHashedStrideSplit) — `cfg(rbsr_internal_testing)`-gated,
 //! see the type's own docs for what it controls for.
 
 use super::cutoffs::shared_cutoffs;
@@ -17,7 +17,7 @@ use super::{Comparison, Decision, RefinementPolicy, SplitStride};
 /// from the *same* support for the second to be a control for the first.
 pub const STRIDE_SPREAD: u64 = 32;
 
-/// **Test-only probe, `cfg(reconcile_internal_testing)`-gated.**
+/// **Test-only probe, `cfg(rbsr_internal_testing)`-gated.**
 /// The oracle-coupled probe's stride *distribution*, drawn from the span instead of the
 /// fingerprint: `1 + mix(span) mod 32`.
 /// The tighter of the two oracle-independent controls.
