@@ -38,7 +38,7 @@
 //!
 //! Trials are independently seeded from a recorded counter (`StdRng::seed_from_u64`), matching
 //! [#355]. Run with:
-//! `RUSTFLAGS="--cfg rbsr_internal_testing" cargo test --release -p rbsr-research --test oracle_dependent_split_vs_the_union_bound -- --ignored --nocapture`
+//! `RUSTFLAGS="--cfg rbsr_internal_testing" cargo test --release -p set-reconciliation-experiments --test oracle_dependent_split_vs_the_union_bound -- --ignored --nocapture`
 //!
 //! ## A second finding this method surfaced unasked: liveness, not just soundness
 //!

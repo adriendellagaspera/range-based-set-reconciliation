@@ -34,7 +34,7 @@
 //! `aggregate_and_truncation_collision_rates.rs`'s arms A/B): the `n = 10⁶, d = 1` case #7's own
 //! table is stated at, and the loss-rate crossover sweep — both Monte Carlo, both requiring a
 //! release build to finish in reasonable time:
-//! `cargo test --release -p rbsr-research --test sketch_exchange_fragmentation_under_loss -- \
+//! `cargo test --release -p set-reconciliation-experiments --test sketch_exchange_fragmentation_under_loss -- \
 //! --ignored --nocapture`.
 //!
 //! **What "measured, not derived" means here.** The completion probability of an exchange is not

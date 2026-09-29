@@ -10,3 +10,5 @@ description = "Reproducible comparator implementations for set-reconciliation ex
 [lib]
 name = "set_reconciliation_comparators"
 path = "src/lib.rs"
+
+[workspace]

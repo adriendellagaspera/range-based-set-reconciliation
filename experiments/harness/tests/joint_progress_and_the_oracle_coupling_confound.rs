@@ -54,7 +54,7 @@
 //!   two sides differ in `size` cannot falsely agree at any width.
 //!
 //! Run with:
-//! `cargo test --release -p rbsr-research --test joint_progress_and_the_oracle_coupling_confound -- --ignored --nocapture`
+//! `cargo test --release -p set-reconciliation-experiments --test joint_progress_and_the_oracle_coupling_confound -- --ignored --nocapture`
 
 #![forbid(unsafe_code)]
 #![cfg(rbsr_internal_testing)]

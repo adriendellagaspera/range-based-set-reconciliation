@@ -62,7 +62,7 @@
 //! Results are *reported*, not asserted against the prediction: a handful of observed events gives a
 //! wide interval, and gating a security-relevant measurement on a noisy count would make this module
 //! flaky rather than informative. Run with:
-//! `cargo test --release -p rbsr-research --test aggregate_and_truncation_collision_rates -- --ignored --nocapture`
+//! `cargo test --release -p set-reconciliation-experiments --test aggregate_and_truncation_collision_rates -- --ignored --nocapture`
 //!
 //! [#355]: https://github.com/Akvize/reconcile-rs/issues/355
 

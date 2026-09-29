@@ -26,7 +26,7 @@
 //!   `joint_progress_and_the_oracle_coupling_confound.rs` holds the policy-level count.
 //!
 //! Run with:
-//! `cargo test --release -p rbsr-research --test the_union_bounds_effective_multiplier -- --ignored --nocapture`
+//! `cargo test --release -p set-reconciliation-experiments --test the_union_bounds_effective_multiplier -- --ignored --nocapture`
 
 #![forbid(unsafe_code)]
 #![cfg(rbsr_internal_testing)]
