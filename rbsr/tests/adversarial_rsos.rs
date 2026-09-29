@@ -8,11 +8,11 @@
 //! Property 4: adversarial RSOS backends.
 //! `RsosView` is public, so a backend's answers are untrusted input.
 //! `rbsr/src/protocol.rs` carries the worked example; this is the property behind it.
-//! The whole module is gated on `reconcile_internal_testing` (only `RsosView` needs the seam, and
+//! The whole module is gated on `rbsr_internal_testing` (only `RsosView` needs the seam, and
 //! that cfg is off by default), so the gate sits at the file level rather than per-item — an
 //! `#[cfg]` on each item individually would leave the imports below unused, and thus warn, whenever
 //! the cfg is off.
-#![cfg(reconcile_internal_testing)]
+#![cfg(rbsr_internal_testing)]
 
 use proptest::prelude::*;
 use rand::rngs::StdRng;
