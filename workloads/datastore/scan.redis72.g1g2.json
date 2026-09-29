@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "pilot_id": "scan.redis72.g1g2",
+  "source": {
+    "paper": "Self-sizing IBLT v1",
+    "arxiv": "2608.26537v1",
+    "sections": [
+      "§5.4",
+      "Appendix R"
+    ],
+    "artifact_repo_commit": "whitewum/self-sizing@4ba615ca76978564d5d7d4b75424a680cae6f21d",
+    "artifact_note": "Observed public revision; it postdates paper v1 and is not an exact build of the paper."
+  },
+  "reproduction_class": "adapted",
+  "backend": {
+    "left": "Redis 7.2.10",
+    "right": "Redis 7.2.10",
+    "capabilities_used": [
+      "single-thread scan"
+    ],
+    "view_semantics": "quiescent/frozen"
+  },
+  "dataset": {
+    "n_approx": 4890077,
+    "string_fraction_approx": 0.99999,
+    "mean_bytes_per_key_approx": 416,
+    "expiration": "none",
+    "record_shape": "Redis STRING key/value records with the source production shape; exact production snapshots and keys are not public."
+  },
+  "logical_identity": "normalized key/value records; the exact source normalization is unknown",
+  "regimes": {
+    "G1": {
+      "cases": [
+        {
+          "name": "equal",
+          "logical_mutations": 0,
+          "symmetric_difference_elements_multiset": 0
+        },
+        {
+          "name": "one_value_update",
+          "logical_mutations": 1,
+          "symmetric_difference_elements_multiset": 2
+        }
+      ],
+      "note": "A value update is one logical mutation but d_ms = 2 under multiset semantics."
+    },
+    "G2": {
+      "symmetric_difference_elements": [
+        100,
+        500,
+        937
+      ],
+      "logical_mutations": "unknown",
+      "insert_delete_update_composition": "unknown"
+    }
+  },
+  "network_budget": {
+    "bandwidth_mbps": 10,
+    "rtt_ms": 28.8
+  },
+  "source_costs": {
+    "single_thread_scan_seconds_approx": 28.1,
+    "normalization_cost": "unknown"
+  },
+  "task_boundary": "exact difference discovery / ID resolution",
+  "completion_boundary": "difference IDs resolved; repair application excluded",
+  "independent_verification": true,
+  "scale": {
+    "source_scale": "approximately 4,890,077 keys",
+    "smoke": "scale-down is allowed only as a smoke test while preserving record shape",
+    "reporting": "smoke results must be reported separately from source-scale results"
+  },
+  "tuning_evaluation": {
+    "tuning": "comparative implementation and tuning are deferred; do not tune against G1/G2 outcomes",
+    "evaluation": "G1 and G2 are the frozen evaluation regimes"
+  },
+  "hypothesis": "For the addon/scan case, scan and normalization cost will dominate at low d, so network savings will not necessarily translate into equivalent wall-clock savings.",
+  "exclusions": [
+    "Pika",
+    "G3-G6",
+    "TTL",
+    "live mutations",
+    "repair application",
+    "maintained RIBLT cache",
+    "other datastores"
+  ],
+  "unknown_policy": "Unknown stays unknown; never coerce an unspecified field to zero."
+}

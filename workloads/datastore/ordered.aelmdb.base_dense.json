@@ -1,0 +1,155 @@
+{
+  "schema_version": 1,
+  "pilot_id": "ordered.aelmdb.base_dense",
+  "source": {
+    "paper": "RBSR via Range-Summarizable Order-Statistics Stores (RSOS/AELMDB)",
+    "arxiv": "2603.19820",
+    "repositories": {
+      "bench-aelmdb": "e74b695328a60370f89887915c428747b19ccec8",
+      "aelmdb": "78fac435971071deeb179c97ae92f25c7b08aad3",
+      "negentropy-aelmdb": "9d231a60538330a1519907dfc21c2ec5385aa29c",
+      "lmdbxx-aelmdb": "e7613879eb7b0364065efb6fd193177415868ab8"
+    },
+    "instrumentation": "Only add an explicit JSON result-file exporter after source measurements. No CSV or human log parser."
+  },
+  "reproduction_class": "instrumented-source-replay",
+  "family": {
+    "name": "baseline_dense_i",
+    "i": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8
+    ],
+    "instances": [
+      {
+        "i": 1,
+        "x_in_intersection": 64,
+        "x_in_minus_y_in": 4,
+        "x_out_intersection": 1000,
+        "x_out_minus_y_out": 200,
+        "y_in_minus_x_in": 4,
+        "y_out_minus_x_out": 200
+      },
+      {
+        "i": 2,
+        "x_in_intersection": 128,
+        "x_in_minus_y_in": 8,
+        "x_out_intersection": 2000,
+        "x_out_minus_y_out": 400,
+        "y_in_minus_x_in": 8,
+        "y_out_minus_x_out": 400
+      },
+      {
+        "i": 3,
+        "x_in_intersection": 192,
+        "x_in_minus_y_in": 12,
+        "x_out_intersection": 3000,
+        "x_out_minus_y_out": 600,
+        "y_in_minus_x_in": 12,
+        "y_out_minus_x_out": 600
+      },
+      {
+        "i": 4,
+        "x_in_intersection": 256,
+        "x_in_minus_y_in": 16,
+        "x_out_intersection": 4000,
+        "x_out_minus_y_out": 800,
+        "y_in_minus_x_in": 16,
+        "y_out_minus_x_out": 800
+      },
+      {
+        "i": 5,
+        "x_in_intersection": 320,
+        "x_in_minus_y_in": 20,
+        "x_out_intersection": 5000,
+        "x_out_minus_y_out": 1000,
+        "y_in_minus_x_in": 20,
+        "y_out_minus_x_out": 1000
+      },
+      {
+        "i": 6,
+        "x_in_intersection": 384,
+        "x_in_minus_y_in": 24,
+        "x_out_intersection": 6000,
+        "x_out_minus_y_out": 1200,
+        "y_in_minus_x_in": 24,
+        "y_out_minus_x_out": 1200
+      },
+      {
+        "i": 7,
+        "x_in_intersection": 448,
+        "x_in_minus_y_in": 28,
+        "x_out_intersection": 7000,
+        "x_out_minus_y_out": 1400,
+        "y_in_minus_x_in": 28,
+        "y_out_minus_x_out": 1400
+      },
+      {
+        "i": 8,
+        "x_in_intersection": 512,
+        "x_in_minus_y_in": 32,
+        "x_out_intersection": 8000,
+        "x_out_minus_y_out": 1600,
+        "y_in_minus_x_in": 32,
+        "y_out_minus_x_out": 1600
+      }
+    ]
+  },
+  "architectures": [
+    "BTreeLMDB",
+    "NoWndAELMDB",
+    "AELMDB"
+  ],
+  "excluded_reference": "Vector is an in-memory reference only and is excluded from the main deployment pilot.",
+  "protocol": {
+    "name": "Negentropy",
+    "fanout_b": 16,
+    "enumeration_threshold_t": 32,
+    "same_rbsr_byte_sequence_per_instance": "hypothesis; this runner checks message/byte counts only, not transcript identity"
+  },
+  "measurements": {
+    "source_metrics": [
+      "T_prep",
+      "T_rec",
+      "S_disk",
+      "S_RSS",
+      "messages",
+      "bytes"
+    ],
+    "fresh_isolated_process_per_instance": true,
+    "mmap_mib": 2048,
+    "rss_source": "/proc/self/status",
+    "independent_process_trials": 10,
+    "reconciliations_averaged_per_process": 10,
+    "cache_policy": "fresh processes after local preparation; no page-cache eviction; not cold-cache",
+    "backend_order": "cyclic rotation across independent trials; sequential execution"
+  },
+  "task_boundary": "RBSR reconciliation over the frozen base_dense_i family",
+  "completion_boundary": "source scoped ID reconciliation checked against analytic HAVE/NEED sets; no network transport or repair",
+  "independent_verification": true,
+  "scale": {
+    "formal_pilot": "i=1..8",
+    "smoke": "i=1 may be used as a smoke test",
+    "scale_down": "none"
+  },
+  "tuning_evaluation": {
+    "tuning": "comparative implementation and tuning are deferred; preserve source parameters for evaluation",
+    "evaluation": "all i=1..8 instances, 10 repetitions each, fresh isolated process per instance"
+  },
+  "hypothesis": "Natively maintained range summaries reduce session cost relative to an auxiliary ordered structure, while preparation, storage, and maintenance costs remain accounted for.",
+  "exclusions": [
+    "Vector from the main deployment pilot",
+    "concurrency",
+    "crash recovery",
+    "cold cache",
+    "streaming",
+    "new tree designs",
+    "other datastores"
+  ],
+  "unknown_policy": "Unknown stays unknown. Counterpart sizes above are confirmed from the pinned source generator, not inferred from the paper."
+}

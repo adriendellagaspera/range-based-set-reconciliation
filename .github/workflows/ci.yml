@@ -1,9 +1,23 @@
-name: ci
+name: stable
 
 on:
   push:
     branches: [main]
+    paths:
+      - 'Cargo.toml'
+      - 'rsos/**'
+      - 'rbsr/**'
+      - 'scripts/check-benchmark-boundaries.sh'
+      - '.github/workflows/ci.yml'
+      - '.github/workflows/release.yml'
   pull_request:
+    paths:
+      - 'Cargo.toml'
+      - 'rsos/**'
+      - 'rbsr/**'
+      - 'scripts/check-benchmark-boundaries.sh'
+      - '.github/workflows/ci.yml'
+      - '.github/workflows/release.yml'
 
 env:
   CARGO_TERM_COLOR: always

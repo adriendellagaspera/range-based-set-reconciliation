@@ -1,0 +1,12 @@
+[package]
+name = "set-reconciliation-comparators"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+publish = false
+license = "MIT OR Apache-2.0"
+description = "Reproducible comparator implementations for set-reconciliation experiments."
+
+[lib]
+name = "set_reconciliation_comparators"
+path = "src/lib.rs"
