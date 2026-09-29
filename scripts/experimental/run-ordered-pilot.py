@@ -114,7 +114,7 @@ def main():
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=False)
     root = Path(__file__).resolve().parents[1]
-    manifest = root / "rbsr-research/benches/fixtures/datastore-workloads/ordered.aelmdb.base_dense.json"
+    manifest = root / "workloads/datastore/ordered.aelmdb.base_dense.json"
     profile = json.loads(manifest.read_text())
     sources = args.sources.resolve() if args.sources else output / "sources"
     sources.mkdir(parents=True, exist_ok=True)

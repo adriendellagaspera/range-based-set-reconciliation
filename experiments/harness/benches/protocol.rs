@@ -23,7 +23,7 @@
 //! in `threshold_sweep`.
 //!
 //! This is deliberately the **research** protocol target. The canonical shipped implementation has
-//! a separate intrinsic benchmark in `range-based-set-reconciliation`
+//! a separate intrinsic benchmark in the stable `rbsr` crate
  //! (`cargo bench -p rbsr --bench protocol`) that stops at messages, ranges, enumeration outcomes,
  //! RSOS queries and CPU time. This target adds policy comparisons, runtime-shaped payload pricing
  //! and transport projections.

@@ -1,6 +1,6 @@
 ---
 name: Issue
-about: A defect, gap, or decision for rbsr-research
+about: A defect, gap, or decision for set-reconciliation
 title: ''
 labels: 'S-needs-triage'
 ---

@@ -16,7 +16,7 @@
 //! not a claim about the production runtime's wire contract.
 //!
 //! The canonical intrinsic benchmark intentionally excludes these assumptions and lives upstream in
-//! `range-based-set-reconciliation` as `cargo bench -p rbsr --bench protocol`.
+//! the stable `rbsr` crate as `cargo bench -p rbsr --bench protocol`.
 
 use std::cell::Cell;
 use std::ops::{Add, RangeBounds};

@@ -34,7 +34,7 @@ SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 cd "$SCRIPT_DIR/.."
 
 LABELS_FILE=.github/labels.tsv
-REPO=${REPO:-adriendellagaspera/rbsr-research}
+REPO=${REPO:-adriendellagaspera/set-reconciliation}
 
 apply=false
 prune=false

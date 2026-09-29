@@ -1,4 +1,4 @@
-//! Private benchmark and experiment support owned by rbsr-research.
+//! Private benchmark and experiment support owned by the set-reconciliation experiment workspace.
 #![forbid(unsafe_code)]
 
 pub mod corpus;

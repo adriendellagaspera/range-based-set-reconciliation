@@ -99,7 +99,7 @@ section "Arm 1 -- collision rates at w/tau = 32 (#10)"
 time_arm() { # $1 test fn -> prints elapsed seconds
     local start
     start=$(date +%s)
-    cargo test --release -p rbsr-research --test aggregate_and_truncation_collision_rates \
+    cargo test --manifest-path experiments/Cargo.toml --release -p set-reconciliation-experiments --test aggregate_and_truncation_collision_rates \
         -- --ignored --exact "$1" >/dev/null 2>&1
     local elapsed=$(($(date +%s) - start))
     [ "$elapsed" -lt 1 ] && elapsed=1
@@ -110,7 +110,7 @@ if [ "${SKIP_ARM_A:-0}" = "1" ]; then
     row "MEASURED trials/s" "skipped (SKIP_ARM_A=1)"
 else
     # Built first, so neither timing includes a compile.
-    cargo test --release -p rbsr-research --test aggregate_and_truncation_collision_rates \
+    cargo test --manifest-path experiments/Cargo.toml --release -p set-reconciliation-experiments --test aggregate_and_truncation_collision_rates \
         --no-run -q >/dev/null 2>&1
     echo "  timing both arms at their shipped sizing ($ARM_A_TRIALS trials each); ~15 min total..."
     a_elapsed=$(time_arm arm_a_aggregate_collision_rate)
@@ -144,9 +144,9 @@ if [ "${SKIP_MEMORY:-0}" = "1" ]; then
 else
     echo "  building two 10^6-element FingerprintTreeMaps and reading peak RSS..."
     # Built first, so the compiler's own RSS is not what gets measured.
-    cargo test --release -p rbsr-research --test sketch_exchange_fragmentation_under_loss \
+    cargo test --manifest-path experiments/Cargo.toml --release -p set-reconciliation-experiments --test sketch_exchange_fragmentation_under_loss \
         --no-run -q >/dev/null 2>&1
-    rss_kb=$(peak_rss_kb cargo test --release -p rbsr-research \
+    rss_kb=$(peak_rss_kb cargo test --manifest-path experiments/Cargo.toml --release -p set-reconciliation-experiments \
         --test sketch_exchange_fragmentation_under_loss \
         -- --ignored --exact headline_case_ranks_the_sketch_against_rbsr_under_loss)
     if [[ "$rss_kb" =~ ^[0-9]+$ ]] && [ "$rss_kb" -gt 0 ]; then

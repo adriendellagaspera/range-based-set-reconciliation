@@ -35,8 +35,8 @@ C-tracking-issue	1d76db	Umbrella over sub-issues. Carries no work of its own
 # ---------------------------------------------------------------------------------------
 # A- — area: where it lands. One or more.
 # ---------------------------------------------------------------------------------------
-A-reporting	c5def5	The measurement/reporting layer (rbsr-research/src/reporting.rs)
-A-probes	c5def5	The ported oracle-independent probe tests (rbsr-research/tests/)
+A-reporting	c5def5	The measurement/reporting layer (experiments/harness/src/reporting.rs)
+A-probes	c5def5	The ported oracle-independent probe tests (experiments/harness/tests/)
 A-benches	c5def5	The four comparative benchmark targets (benches/)
 A-literature	c5def5	README.md's positioning, glossary, and bibliography
 A-deps	c5def5	The pinned reconcile-rs revision, and re-validating probes/benches when it bumps
