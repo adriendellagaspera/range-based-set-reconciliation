@@ -11,10 +11,10 @@
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 
-use set_reconciliation_experiments::iblt::transition::{
+use set_reconciliation_comparators::iblt::transition::{
     run_transition, FallbackReason, ProbeOutcome, SuccessTarget, TransitionLimits, TransitionPlan,
 };
-use set_reconciliation_experiments::iblt::Record;
+use set_reconciliation_comparators::iblt::Record;
 use set_reconciliation_experiments::reporting::wilson_99_ci;
 
 const BASE_SEED: u64 = 0x36_128_184;

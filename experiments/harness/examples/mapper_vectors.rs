@@ -14,7 +14,7 @@
 
 use std::io::{self, BufRead};
 
-use set_reconciliation_experiments::iblt::positions;
+use set_reconciliation_comparators::iblt::positions;
 
 fn main() {
     for (line_number, line) in io::stdin().lock().lines().enumerate() {
