@@ -99,7 +99,7 @@ fn replica(
     )
 }
 
-pub(super) async fn run_bitmap_sample(
+pub(crate) async fn run_bitmap_sample(
     fixture: &Fixture,
     budget: usize,
     profile: FaultProfile,
@@ -107,7 +107,7 @@ pub(super) async fn run_bitmap_sample(
     run_bitmap_sample_with_wire(fixture, budget, profile, DataWire::Full).await
 }
 
-pub(super) async fn run_minimal_bitmap_sample(
+pub(crate) async fn run_minimal_bitmap_sample(
     fixture: &Fixture,
     budget: usize,
     profile: FaultProfile,

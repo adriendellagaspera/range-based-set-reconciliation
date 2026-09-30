@@ -19,9 +19,8 @@ use reconcile::{InMemoryTransport, Transport};
 use super::wire::{
     decode_bitmap_ack, decode_envelope, decode_minimal_envelope, encode_bitmap_ack,
     encode_envelope, encode_minimal_envelope, pack_messages, stable_id, AttemptMap, BitmapAck,
-    BitmapAckEntry, FaultKey, FaultProfile, Metrics, Trace, WireKey, ACK, BITMAP_ACK,
-    BITMAP_ACK_BASE_LEN, BITMAP_ACK_ENTRY_LEN, DATA, HEADER_LEN, MAX_FRAMES_PER_FLIGHT,
-    MAX_PENDING_FRAMES, MINIMAL_HEADER_LEN,
+    BitmapAckEntry, FaultKey, FaultProfile, Metrics, Trace, WireKey, ACK, BITMAP_ACK, DATA,
+    HEADER_LEN, MAX_FRAMES_PER_FLIGHT, MAX_PENDING_FRAMES, MINIMAL_HEADER_LEN,
 };
 
 const MAX_RETRIES: usize = 3;
