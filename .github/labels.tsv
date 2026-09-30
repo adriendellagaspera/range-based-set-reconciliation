@@ -1,51 +1,33 @@
-# Label taxonomy — the single source of truth for this repository's issue labels.
+# Label taxonomy — source of truth for this repository's issue labels.
 #
 # Format: name <TAB> color (6 hex digits, no #) <TAB> description.
-# Blank lines and `#` comments are ignored. `scripts/sync-labels.sh` applies this file to
-# GitHub; `scripts/check-issue-triage.sh` gates that every open issue carries a valid
-# combination. AGENTS.md §8: the rule lives in a failing command, not in prose someone has
-# to remember.
+# Blank lines and `#` comments are ignored. `scripts/sync-labels.sh` applies this file to GitHub.
 #
-# Ported from reconcile-rs's own `.github/labels.tsv` (same C-/A-/S- dialect, same reasoning
-# for what's deliberately absent: no P-/E-/T-/S-stale, no GitHub-native Issue Type/Priority/
-# Effort fields -- see that file's header for the full case). Two things adapted for this
-# repo's shape:
-#
-#   - A- no longer mirrors a multi-crate workspace (reconcile-rs's five crates): this repo is
-#     one crate consuming rsos/rbsr/lww-register/gossip/reconcile as externals, with no
-#     internal domain boundary to mirror. The values below are by research concern instead.
-#   - M-breaking and the two GitHub-discovery meta labels (`good first issue`, `help wanted`)
-#     are dropped: `publish = false`, this crate is never released, so there is no semver
-#     contract to protect and no external contributor funnel those two labels exist to serve
-#     (Cargo.toml's own "private research companion" description). Revisit if either changes.
+# C- classifies the artifact that closes an issue, A- the affected surface(s), and S- its
+# actionability. The taxonomy spans the stable crates and the algorithm/research surfaces.
 
-# ---------------------------------------------------------------------------------------
-# C- — category: what the issue is, i.e. what artifact closes it. Exactly one.
-# ---------------------------------------------------------------------------------------
-C-bug	1d76db	Behaviour, or a probe/bench result, contradicts what README.md or a doc comment claims
-C-feature	1d76db	A new capability — a ported test, a new probe, a new bench target
-C-enhancement	1d76db	Improves existing behaviour — measurement precision, bench coverage — no new capability
-C-cleanup	1d76db	Internal quality, hygiene or metadata; no observable behaviour change
-C-docs	1d76db	Documentation only — no code change closes it
-C-investigation	1d76db	Closes with evidence: a measurement, a reproduction, a bench run
-C-design	1d76db	Closes with a written design. The solution space is what is missing
-C-decision	1d76db	Closes with a recorded call in AGENTS.md. The options are already framed
-C-tracking-issue	1d76db	Umbrella over sub-issues. Carries no work of its own
+# C- — category: exactly one.
+C-bug	1d76db	Behaviour or a measured result contradicts an established invariant or documented claim
+C-feature	1d76db	A new capability, implementation, comparator, construction, probe, or benchmark
+C-enhancement	1d76db	Improves an existing capability or measurement without introducing a new one
+C-cleanup	1d76db	Internal quality, hygiene, migration, or metadata with no intended behaviour change
+C-docs	1d76db	Documentation or literature work only
+C-investigation	1d76db	Closes with evidence: measurement, reproduction, qualification, or falsification
+C-design	1d76db	Closes with a concrete design or formalized mechanism
+C-decision	1d76db	Closes with a recorded decision among already-framed alternatives
+C-tracking-issue	1d76db	Umbrella over sub-issues; carries no implementation work of its own
 
-# ---------------------------------------------------------------------------------------
-# A- — area: where it lands. One or more.
-# ---------------------------------------------------------------------------------------
-A-reporting	c5def5	The measurement/reporting layer (experiments/harness/src/reporting.rs)
-A-probes	c5def5	The ported oracle-independent probe tests (experiments/harness/tests/)
-A-benches	c5def5	The four comparative benchmark targets (benches/)
-A-literature	c5def5	README.md's positioning, glossary, and bibliography
-A-deps	c5def5	The pinned reconcile-rs revision, and re-validating probes/benches when it bumps
-A-meta	c5def5	The repository itself — its docs, its tracker, its agent instructions, its CI
+# A- — area: one or more.
+A-reporting	c5def5	Experiment measurement, reporting, and artifact generation
+A-probes	c5def5	Experimental probes, simulations, and correctness/property harnesses
+A-benches	c5def5	Comparators, benchmarks, transport projections, and performance experiments
+A-literature	c5def5	Survey, bibliography, terminology, evidence catalog, and provenance
+A-deps	c5def5	Cross-repository or external dependency pins and their revalidation
+A-security	c5def5	Threat models, adversarial guarantees, collision/soundness, and security assumptions
+A-meta	c5def5	Repository structure, tracker, CI, release, migration, or governance
 
-# ---------------------------------------------------------------------------------------
-# S- — status: whether it can be acted on now, and if not, what is in the way. Exactly one.
-# ---------------------------------------------------------------------------------------
-S-needs-triage	fbca04	Not yet classified. The default on anything new; C-/A- are not required until it leaves
+# S- — status: exactly one.
+S-needs-triage	fbca04	Not yet classified
 S-ready	fbca04	Understood, unblocked, and actionable as written
-S-blocked	fbca04	Blocked by another issue, named in the body
-S-parked	fbca04	Deliberately not now. The body MUST state what would wake it up
+S-blocked	fbca04	Blocked by another issue or prerequisite named in the body
+S-parked	fbca04	Deliberately deferred; the body states what would wake it up
