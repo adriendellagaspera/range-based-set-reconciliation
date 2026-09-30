@@ -1,19 +1,16 @@
 ---
 name: Issue
-about: A defect, gap, or decision for set-reconciliation
+about: A defect, gap, experiment, construction, model, or decision for set-reconciliation
 title: ''
 labels: 'S-needs-triage'
 ---
 
 <!--
-AGENTS.md §2: prose is the last resort. A table, a code block, or a link replaces a
-paragraph. Delete any section below that doesn't apply — don't pad it with prose to fill it in.
+Delete sections that do not apply.
 
-Labels: `.github/labels.tsv` defines them and says what each namespace is for.
-Triage replaces `S-needs-triage` with one `C-` (what artifact closes this), one
-or more `A-` (where it lands), and the `S-` this is actually in;
-`scripts/check-issue-triage.sh` gates it. `S-parked` is only valid if the body
-states what would wake the issue up.
+Labels: `.github/labels.tsv` defines the C-/A-/S- taxonomy.
+Triage replaces `S-needs-triage` with one C- label, one or more A- labels,
+and the appropriate S- label.
 -->
 
 ## Problem
@@ -23,7 +20,7 @@ states what would wake the issue up.
 | Where | `path/to/file.rs:NN` |
 | What | |
 
-## Fix
+## Proposed work
 
 ## Acceptance
 
