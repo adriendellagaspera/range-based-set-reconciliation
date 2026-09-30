@@ -424,7 +424,7 @@ arXiv:2509.02373 and arXiv:2603.19820 are primary sources; other entries are sum
   **Bears on:** LSH over IBLTs makes the cost scale with a distance between the sets' *elements*
   instead of a count of differing ones. Every column in this workspace counts differing `(key, value)`
   pairs, so an LWW update to an existing key — the divergence a KV store actually accumulates, and
-  where the count signal reads zero ([#12](https://github.com/adriendellagaspera/rbsr-research/issues/12)) — is priced as a full difference. A
+  where the count signal reads zero (`experiments/harness/src/policy.rs` count-delta probe) — is priced as a full difference. A
   `lift`-then-add summary is deliberately distance-destroying, so this is the argument that a different summary prices a different workload, not an adaptation of this one.
   → [§1.3](#13-the-design-space-rbsr-variants-over-an-rsos-and-alternatives-to-the-rsos), [#44](https://github.com/adriendellagaspera/set-reconciliation/issues/44)
 - **M. Mitzenmacher, R. Pagh**, *Simple multi-party set reconciliation*,
