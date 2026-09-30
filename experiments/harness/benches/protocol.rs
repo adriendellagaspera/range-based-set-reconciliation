@@ -24,9 +24,9 @@
 //!
 //! This is deliberately the **research** protocol target. The canonical shipped implementation has
 //! a separate intrinsic benchmark in the stable `rbsr` crate
- //! (`cargo bench -p rbsr --bench protocol`) that stops at messages, ranges, enumeration outcomes,
- //! RSOS queries and CPU time. This target adds policy comparisons, runtime-shaped payload pricing
- //! and transport projections.
+//! (`cargo bench -p rbsr --bench protocol`) that stops at messages, ranges, enumeration outcomes,
+//! RSOS queries and CPU time. This target adds policy comparisons, runtime-shaped payload pricing
+//! and transport projections.
 //!
 //! **One unit: total wire bytes.** A policy that splits less advertises fewer ranges but reaches
 //! its IDLIST cutoff on wider ranges, and every enumerated element is a *value* on the wire —
@@ -78,8 +78,8 @@ use lww_register::Entry;
 use rand::rngs::StdRng;
 use rand::SeedableRng;
 use rbsr::{EnumerateBelowThreshold, FanOut, FixedFanOut, RefinementPolicy, SqrtFanOut};
-use set_reconciliation_experiments::policy::CountDeltaFanOut;
 use rsos::{FingerprintTreeMap, Rsos};
+use set_reconciliation_experiments::policy::CountDeltaFanOut;
 
 /// Store sizes swept by the cost report (log scale). Capped at 10⁶: the point is the growth rate of
 /// the exchanged volume, and two 10⁷-entry trees would dominate the benchmark's own runtime with

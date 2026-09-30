@@ -39,7 +39,9 @@ use rand::rngs::StdRng;
 use rand::SeedableRng;
 
 use rbsr::{FixedFanOut, RefinementPolicy};
-use set_reconciliation_experiments::policy::{FingerprintDerivedSplit, SpanRelativeFingerprintSplit};
+use set_reconciliation_experiments::policy::{
+    FingerprintDerivedSplit, SpanRelativeFingerprintSplit,
+};
 
 use oracle_probe_harness::*;
 

@@ -98,8 +98,8 @@ use rbsr::{
     initial_ranges, protocol_round_with_policy, EnumerationRange, FixedFanOut, RefinementPolicy,
     RsosView,
 };
-use set_reconciliation_experiments::policy::FingerprintDerivedSplit;
 use rsos::{digest, Aggregate, Fingerprint};
+use set_reconciliation_experiments::policy::FingerprintDerivedSplit;
 
 /// Past this many rounds the drive is not converging; the cap turns a hang into a failure rather
 /// than a timeout with no diagnostic — same budget as `pure_deletion_is_never_falsely_skipped.rs`.

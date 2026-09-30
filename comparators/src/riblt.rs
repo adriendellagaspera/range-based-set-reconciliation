@@ -272,11 +272,7 @@ impl DifferenceDecoder {
 
 /// Reconcile two record sets until decode succeeds or `hard_cap` coded symbols were consumed.
 #[cfg(test)]
-pub fn reconcile_prefix(
-    source: &[Record],
-    target: &[Record],
-    hard_cap: usize,
-) -> RibltResult {
+pub fn reconcile_prefix(source: &[Record], target: &[Record], hard_cap: usize) -> RibltResult {
     let mut source_encoder = Encoder::default();
     let mut target_encoder = Encoder::default();
     for &record in source {

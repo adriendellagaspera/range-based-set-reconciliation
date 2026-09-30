@@ -2,7 +2,9 @@ use std::env;
 use std::fs::File;
 use std::io::{self, BufReader, Error, ErrorKind};
 
-use set_reconciliation_experiments::comparison::experiment::{read_experiment_report, write_experiment_summary};
+use set_reconciliation_experiments::comparison::experiment::{
+    read_experiment_report, write_experiment_summary,
+};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut args = env::args_os().skip(1);
