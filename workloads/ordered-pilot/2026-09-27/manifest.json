@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "pilot_id": "ordered.aelmdb.base_dense",
+  "status": "completed",
+  "smoke": false,
+  "started_utc": "2026-09-27T11:57:10.949624+00:00",
+  "manifest_sha256": "e5d6e6901485bd91931e084321c4fbdb8767c9ecceee5c9bb62c7afb78409439",
+  "repositories": {
+    "bench-aelmdb": "e74b695328a60370f89887915c428747b19ccec8",
+    "aelmdb": "78fac435971071deeb179c97ae92f25c7b08aad3",
+    "negentropy-aelmdb": "9d231a60538330a1519907dfc21c2ec5385aa29c",
+    "lmdbxx-aelmdb": "e7613879eb7b0364065efb6fd193177415868ab8"
+  },
+  "runner_sha256": "e9b7ef45c97230f30165bdb0977257272d4d568b1e0c535eb50282adf6419950",
+  "exporter_sha256": "551a88ef2d27b2147f45bbef73424cdbf6752de7ef9ee1fbdbd0dd96515ba61b",
+  "platform": "Linux-6.18.44-x86_64-with-glibc2.39",
+  "machine": "x86_64",
+  "cpu_model": "INTEL(R) XEON(R) PLATINUM 8573C",
+  "affinity_cpus": 9,
+  "compiler": "g++ (Ubuntu 13.3.0-6ubuntu2~24.04) 13.3.0\nCopyright (C) 2023 Free Software Foundation, Inc.\nThis is free software; see the source for copying conditions.  There is NO\nwarranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n",
+  "flags": "cc -pthread -O3 -DNDEBUG; g++ -std=c++20 -O3 -DNDEBUG -lcrypto",
+  "instances": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+  ],
+  "independent_process_trials": 10,
+  "reconciliations_averaged_per_process": 10,
+  "limitations": [
+    "Local sequential protocol execution; no network transport or repair.",
+    "Fresh processes after preparation; no page-cache eviction or host exclusivity.",
+    "Source total_bench_ms is open + build + mean reconciliation, not one critical-path timer.",
+    "Source preparation subphases overlap; do not sum them or equate prep_total to addon build.",
+    "RSS is a process snapshot, not a per-peer allocation or peak measure.",
+    "CPU and I/O remain unmeasured. Equal protocol byte counts do not prove transcript identity.",
+    "Source msg_count counts request/response iterations, not individual one-way messages.",
+    "Source checks exact analytic HAVE/NEED on the first reconciliation of each process."
+  ],
+  "executable_sha256": "e5c2d9b2557d9d35d3d426d50ef440c02708229c389cc63f1e96b356381f5952",
+  "observation_count": 240,
+  "observations_sha256": "aad20a0c40fe274ecbdb8891d15e682f537872c7795bd552d6a95d93e671a1b5",
+  "summary_sha256": "4ee8d422a8e79c8db38f4b99c5516c41c5f4395b4c76cb1043ce1867f0009bec",
+  "finished_utc": "2026-09-27T11:57:28.420000+00:00"
+}

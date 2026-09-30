@@ -1,0 +1,4 @@
+# Experimental code intentionally exercises cfg-gated RBSR probe seams.
+[build]
+rustflags = ["--cfg", "rbsr_internal_testing"]
+rustdocflags = ["--cfg", "rbsr_internal_testing"]

@@ -1,0 +1,67 @@
+name: labels
+
+# Ported unmodified from reconcile-rs's own labels.yml (same two jobs, same reasoning): keeps the
+# label set itself mechanical (AGENTS.md §8).
+#   sync     the label set drifts from `.github/labels.tsv` -> re-apply the file on every change
+#   triage   an issue opens with no labels at all           -> stamp `S-needs-triage`
+# The third failure mode -- an issue carrying an invalid *combination* -- is audited by
+# issue-integrity.yml's `open-issue-labels` job.
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - '.github/labels.tsv'
+      - 'scripts/sync-labels.sh'
+      - '.github/workflows/labels.yml'
+  issues:
+    types: [ opened ]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      # `contents: read` is not redundant: naming any scope drops every unnamed one to `none`, so
+      # `issues: write` alone left the token unable to clone a private repo and every run of this
+      # job since 2026-08-23 failed in `actions/checkout` with "Repository not found" -- which is
+      # also why `triage` below then failed on every issue with "'S-needs-triage' not found".
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+      # No `--prune`: deleting a label strips it from every issue carrying it, which is not
+      # recoverable from the file. Removing a label is therefore a deliberate local run
+      # (`./scripts/sync-labels.sh --apply --prune`), never a side effect of a merge.
+      - name: Apply .github/labels.tsv
+        run: ./scripts/sync-labels.sh --apply
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  triage:
+    if: github.event_name == 'issues'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      # Guarded on "no S- label yet": an issue created through the API with its full C-/A-/S- set
+      # already present still fires this same `issues: opened` webhook, and an unconditional
+      # `--add-label` would merge a second, contradictory S- onto it rather than replace.
+      - name: Stamp S-needs-triage, unless an S- label is already present
+        run: |
+          set -euo pipefail
+          existing=$(gh issue view "$NUMBER" --repo "$GITHUB_REPOSITORY" --json labels --jq '.labels[].name')
+          if grep -q '^S-' <<<"$existing"; then
+            echo "already carries an S- label, not stamping:"
+            grep '^S-' <<<"$existing"
+          else
+            gh issue edit "$NUMBER" --repo "$GITHUB_REPOSITORY" --add-label S-needs-triage
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NUMBER: ${{ github.event.issue.number }}

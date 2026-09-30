@@ -1,0 +1,650 @@
+[
+  {
+    "scenario": "baseline_dense_1",
+    "backend": "AELMDBSlice",
+    "process_trials": 10,
+    "prep_total_ms": {
+      "median": 4.055994500000001,
+      "min": 3.074699,
+      "max": 10.584606
+    },
+    "reconcile_ms": {
+      "median": 0.19904265000000002,
+      "min": 0.1868742,
+      "max": 0.25752509999999995
+    },
+    "total_bench_ms": {
+      "median": 0.27091465000000003,
+      "min": 0.2575422,
+      "max": 0.4641323
+    },
+    "rss_kb_after": {
+      "median": 4236.0,
+      "min": 4172,
+      "max": 4240
+    },
+    "protocol_bytes": 443,
+    "allocated_disk_bytes": 245760
+  },
+  {
+    "scenario": "baseline_dense_1",
+    "backend": "BTreeLMDB",
+    "process_trials": 10,
+    "prep_total_ms": {
+      "median": 3.2885720000000003,
+      "min": 2.706391,
+      "max": 6.046527
+    },
+    "reconcile_ms": {
+      "median": 0.40973419999999994,
+      "min": 0.38002539999999996,
+      "max": 0.6282851
+    },
+    "total_bench_ms": {
+      "median": 0.5147170999999999,
+      "min": 0.4613923999999999,
+      "max": 0.7050231
+    },
+    "rss_kb_after": {
+      "median": 4244.0,
+      "min": 4236,
+      "max": 4248
+    },
+    "protocol_bytes": 443,
+    "allocated_disk_bytes": 262144
+  },
+  {
+    "scenario": "baseline_dense_1",
+    "backend": "NoAggWindowSliceAELMDB",
+    "process_trials": 10,
+    "prep_total_ms": {
+      "median": 3.9772135,
+      "min": 3.316217,
+      "max": 9.878589
+    },
+    "reconcile_ms": {
+      "median": 0.21466294999999996,
+      "min": 0.19493080000000002,
+      "max": 0.2885539999999999
+    },
+    "total_bench_ms": {
+      "median": 0.2933232,
+      "min": 0.2688728,
+      "max": 0.36278599999999994
+    },
+    "rss_kb_after": {
+      "median": 4236.0,
+      "min": 4164,
+      "max": 4240
+    },
+    "protocol_bytes": 443,
+    "allocated_disk_bytes": 245760
+  },
+  {
+    "scenario": "baseline_dense_2",
+    "backend": "AELMDBSlice",
+    "process_trials": 10,
+    "prep_total_ms": {
+      "median": 4.887472499999999,
+      "min": 4.037308,
+      "max": 6.159439
+    },
+    "reconcile_ms": {
+      "median": 0.21897954999999997,
+      "min": 0.1955483,
+      "max": 0.2410902
+    },
+    "total_bench_ms": {
+      "median": 0.28911804999999996,
+      "min": 0.2678183,
+      "max": 0.3365161
+    },
+    "rss_kb_after": {
+      "median": 4316.0,
+      "min": 4192,
+      "max": 4320
+    },
+    "protocol_bytes": 571,
+    "allocated_disk_bytes": 458752
+  },
+  {
+    "scenario": "baseline_dense_2",
+    "backend": "BTreeLMDB",
+    "process_trials": 10,
+    "prep_total_ms": {
+      "median": 4.2016469999999995,
+      "min": 3.841272,
+      "max": 10.344909
+    },
+    "reconcile_ms": {
+      "median": 0.6777276499999999,
+      "min": 0.6140394,
+      "max": 1.0699412
+    },
+    "total_bench_ms": {
+      "median": 0.7653206499999998,
+      "min": 0.7031554,
+      "max": 1.1574452
+    },
+    "rss_kb_after": {
+      "median": 4432.0,
+      "min": 4416,
+      "max": 4436
+    },
+    "protocol_bytes": 571,
+    "allocated_disk_bytes": 450560
+  },
+  {
+    "scenario": "baseline_dense_2",
+    "backend": "NoAggWindowSliceAELMDB",
+    "process_trials": 10,
+    "prep_total_ms": {
+      "median": 5.2419335,
+      "min": 4.318204,
+      "max": 10.648474
+    },
+    "reconcile_ms": {
+      "median": 0.23073345,
+      "min": 0.21827389999999997,
+      "max": 0.5854839999999999
+    },
+    "total_bench_ms": {
+      "median": 0.30410795,
+      "min": 0.28205389999999997,
+      "max": 0.6547669999999999
+    },
+    "rss_kb_after": {
+      "median": 4320.0,
+      "min": 4160,
+      "max": 4324
+    },
+    "protocol_bytes": 571,
+    "allocated_disk_bytes": 458752
+  },
+  {
+    "scenario": "baseline_dense_3",
+    "backend": "AELMDBSlice",
+    "process_trials": 10,
+    "prep_total_ms": {
+      "median": 6.3079325,
+      "min": 5.664961,
+      "max": 8.669839
+    },
+    "reconcile_ms": {
+      "median": 0.23505500000000001,
+      "min": 0.20361350000000003,
+      "max": 0.34597069999999996
+    },
+    "total_bench_ms": {
+      "median": 0.311238,
+      "min": 0.2772915,
+      "max": 0.42534739999999993
+    },
+    "rss_kb_after": {
+      "median": 4500.0,
+      "min": 4360,
+      "max": 4520
+    },
+    "protocol_bytes": 699,
+    "allocated_disk_bytes": 655360
+  },
+  {
+    "scenario": "baseline_dense_3",
+    "backend": "BTreeLMDB",
+    "process_trials": 10,
+    "prep_total_ms": {
+      "median": 5.494657,
+      "min": 4.528501,
+      "max": 10.266847
+    },
+    "reconcile_ms": {
+      "median": 0.96853415,
+      "min": 0.8956323000000002,
+      "max": 1.3629117999999998
+    },
+    "total_bench_ms": {
+      "median": 1.12013285,
+      "min": 0.9961223000000001,
+      "max": 2.5621376000000002
+    },
+    "rss_kb_after": {
+      "median": 4628.0,
+      "min": 4624,
+      "max": 4632
+    },
+    "protocol_bytes": 699,
+    "allocated_disk_bytes": 647168
+  },
+  {
+    "scenario": "baseline_dense_3",
+    "backend": "NoAggWindowSliceAELMDB",
+    "process_trials": 10,
+    "prep_total_ms": {
+      "median": 6.2502344999999995,
+      "min": 5.498776,
+      "max": 8.308094
+    },
+    "reconcile_ms": {
+      "median": 0.23153620000000003,
+      "min": 0.22020129999999996,
+      "max": 0.3942249
+    },
+    "total_bench_ms": {
+      "median": 0.31439030000000007,
+      "min": 0.29316929999999997,
+      "max": 0.8188093000000001
+    },
+    "rss_kb_after": {
+      "median": 4486.0,
+      "min": 4360,
+      "max": 4520
+    },
+    "protocol_bytes": 699,
+    "allocated_disk_bytes": 655360
+  },
+  {
+    "scenario": "baseline_dense_4",
+    "backend": "AELMDBSlice",
+    "process_trials": 10,
+    "prep_total_ms": {
+      "median": 7.3656585,
+      "min": 5.836115,
+      "max": 14.611065
+    },
+    "reconcile_ms": {
+      "median": 0.23129335,
+      "min": 0.19342949999999998,
+      "max": 0.2725143
+    },
+    "total_bench_ms": {
+      "median": 0.3301849499999999,
+      "min": 0.26674849999999994,
+      "max": 0.6143855
+    },
+    "rss_kb_after": {
+      "median": 4522.0,
+      "min": 4412,
+      "max": 4576
+    },
+    "protocol_bytes": 859,
+    "allocated_disk_bytes": 843776
+  },
+  {
+    "scenario": "baseline_dense_4",
+    "backend": "BTreeLMDB",
+    "process_trials": 10,
+    "prep_total_ms": {
+      "median": 6.008659,
+      "min": 5.60476,
+      "max": 9.092021
+    },
+    "reconcile_ms": {
+      "median": 1.33108695,
+      "min": 1.2086552000000002,
+      "max": 1.9024489
+    },
+    "total_bench_ms": {
+      "median": 1.4551726999999999,
+      "min": 1.3249502000000002,
+      "max": 2.0282839
+    },
+    "rss_kb_after": {
+      "median": 4832.0,
+      "min": 4764,
+      "max": 4836
+    },
+    "protocol_bytes": 859,
+    "allocated_disk_bytes": 851968
+  },
+  {
+    "scenario": "baseline_dense_4",
+    "backend": "NoAggWindowSliceAELMDB",
+    "process_trials": 10,
+    "prep_total_ms": {
+      "median": 6.9754059999999996,
+      "min": 6.091601,
+      "max": 13.215907
+    },
+    "reconcile_ms": {
+      "median": 0.22970375,
+      "min": 0.21303550000000002,
+      "max": 0.3880801
+    },
+    "total_bench_ms": {
+      "median": 0.30525749999999996,
+      "min": 0.2848815,
+      "max": 0.4637171
+    },
+    "rss_kb_after": {
+      "median": 4576.0,
+      "min": 4568,
+      "max": 4600
+    },
+    "protocol_bytes": 859,
+    "allocated_disk_bytes": 843776
+  },
+  {
+    "scenario": "baseline_dense_5",
+    "backend": "AELMDBSlice",
+    "process_trials": 10,
+    "prep_total_ms": {
+      "median": 8.031506,
+      "min": 7.538581,
+      "max": 18.118438
+    },
+    "reconcile_ms": {
+      "median": 0.223686,
+      "min": 0.21343889999999996,
+      "max": 0.29073129999999997
+    },
+    "total_bench_ms": {
+      "median": 0.30653535,
+      "min": 0.28574789999999994,
+      "max": 0.36267229999999995
+    },
+    "rss_kb_after": {
+      "median": 4516.0,
+      "min": 4324,
+      "max": 4660
+    },
+    "protocol_bytes": 987,
+    "allocated_disk_bytes": 1040384
+  },
+  {
+    "scenario": "baseline_dense_5",
+    "backend": "BTreeLMDB",
+    "process_trials": 10,
+    "prep_total_ms": {
+      "median": 7.255103,
+      "min": 6.435197,
+      "max": 12.69786
+    },
+    "reconcile_ms": {
+      "median": 1.8612441999999998,
+      "min": 1.7775031,
+      "max": 2.8857894
+    },
+    "total_bench_ms": {
+      "median": 2.0587716,
+      "min": 1.9128701,
+      "max": 3.0980414
+    },
+    "rss_kb_after": {
+      "median": 5032.0,
+      "min": 4996,
+      "max": 5036
+    },
+    "protocol_bytes": 987,
+    "allocated_disk_bytes": 1056768
+  },
+  {
+    "scenario": "baseline_dense_5",
+    "backend": "NoAggWindowSliceAELMDB",
+    "process_trials": 10,
+    "prep_total_ms": {
+      "median": 8.2278335,
+      "min": 7.404373,
+      "max": 12.579528
+    },
+    "reconcile_ms": {
+      "median": 0.25218589999999996,
+      "min": 0.23065339999999995,
+      "max": 0.31200599999999995
+    },
+    "total_bench_ms": {
+      "median": 0.33530855000000004,
+      "min": 0.30491429999999997,
+      "max": 0.482201
+    },
+    "rss_kb_after": {
+      "median": 4648.0,
+      "min": 4612,
+      "max": 4772
+    },
+    "protocol_bytes": 987,
+    "allocated_disk_bytes": 1040384
+  },
+  {
+    "scenario": "baseline_dense_6",
+    "backend": "AELMDBSlice",
+    "process_trials": 10,
+    "prep_total_ms": {
+      "median": 9.647120999999999,
+      "min": 7.974704,
+      "max": 18.218407
+    },
+    "reconcile_ms": {
+      "median": 0.23058794999999999,
+      "min": 0.21444009999999997,
+      "max": 0.5103047
+    },
+    "total_bench_ms": {
+      "median": 0.32293465,
+      "min": 0.2888837,
+      "max": 1.9458757
+    },
+    "rss_kb_after": {
+      "median": 4520.0,
+      "min": 4432,
+      "max": 4612
+    },
+    "protocol_bytes": 1115,
+    "allocated_disk_bytes": 1236992
+  },
+  {
+    "scenario": "baseline_dense_6",
+    "backend": "BTreeLMDB",
+    "process_trials": 10,
+    "prep_total_ms": {
+      "median": 8.482389999999999,
+      "min": 8.028791,
+      "max": 14.770867
+    },
+    "reconcile_ms": {
+      "median": 1.0455666,
+      "min": 0.9394318000000002,
+      "max": 1.7432528
+    },
+    "total_bench_ms": {
+      "median": 1.1412236,
+      "min": 1.0397628,
+      "max": 1.8379498
+    },
+    "rss_kb_after": {
+      "median": 5120.0,
+      "min": 5092,
+      "max": 5184
+    },
+    "protocol_bytes": 1115,
+    "allocated_disk_bytes": 1269760
+  },
+  {
+    "scenario": "baseline_dense_6",
+    "backend": "NoAggWindowSliceAELMDB",
+    "process_trials": 10,
+    "prep_total_ms": {
+      "median": 9.481916,
+      "min": 7.867811,
+      "max": 10.989071
+    },
+    "reconcile_ms": {
+      "median": 0.24915340000000002,
+      "min": 0.2227097,
+      "max": 0.38529559999999996
+    },
+    "total_bench_ms": {
+      "median": 0.3207359,
+      "min": 0.2920817,
+      "max": 0.46182359999999995
+    },
+    "rss_kb_after": {
+      "median": 4840.0,
+      "min": 4612,
+      "max": 4848
+    },
+    "protocol_bytes": 1115,
+    "allocated_disk_bytes": 1236992
+  },
+  {
+    "scenario": "baseline_dense_7",
+    "backend": "AELMDBSlice",
+    "process_trials": 10,
+    "prep_total_ms": {
+      "median": 11.8694375,
+      "min": 9.540604,
+      "max": 24.513261
+    },
+    "reconcile_ms": {
+      "median": 0.27739545,
+      "min": 0.2084378,
+      "max": 0.7177217
+    },
+    "total_bench_ms": {
+      "median": 0.35390895,
+      "min": 0.2798528,
+      "max": 0.8931687
+    },
+    "rss_kb_after": {
+      "median": 4564.0,
+      "min": 4448,
+      "max": 4660
+    },
+    "protocol_bytes": 1243,
+    "allocated_disk_bytes": 1425408
+  },
+  {
+    "scenario": "baseline_dense_7",
+    "backend": "BTreeLMDB",
+    "process_trials": 10,
+    "prep_total_ms": {
+      "median": 10.708852499999999,
+      "min": 8.78883,
+      "max": 12.11966
+    },
+    "reconcile_ms": {
+      "median": 1.0271458500000001,
+      "min": 0.8262165000000001,
+      "max": 2.4994275000000004
+    },
+    "total_bench_ms": {
+      "median": 1.1216338500000003,
+      "min": 0.9207815000000001,
+      "max": 2.6273995000000006
+    },
+    "rss_kb_after": {
+      "median": 5308.0,
+      "min": 5196,
+      "max": 5376
+    },
+    "protocol_bytes": 1243,
+    "allocated_disk_bytes": 1458176
+  },
+  {
+    "scenario": "baseline_dense_7",
+    "backend": "NoAggWindowSliceAELMDB",
+    "process_trials": 10,
+    "prep_total_ms": {
+      "median": 10.7142305,
+      "min": 8.902678,
+      "max": 15.228878
+    },
+    "reconcile_ms": {
+      "median": 0.24457195000000004,
+      "min": 0.23865569999999997,
+      "max": 0.4084929
+    },
+    "total_bench_ms": {
+      "median": 0.32117385,
+      "min": 0.3107485,
+      "max": 0.5006379
+    },
+    "rss_kb_after": {
+      "median": 4706.0,
+      "min": 4644,
+      "max": 5028
+    },
+    "protocol_bytes": 1243,
+    "allocated_disk_bytes": 1425408
+  },
+  {
+    "scenario": "baseline_dense_8",
+    "backend": "AELMDBSlice",
+    "process_trials": 10,
+    "prep_total_ms": {
+      "median": 12.824267500000001,
+      "min": 10.824876,
+      "max": 18.123908
+    },
+    "reconcile_ms": {
+      "median": 0.41475039999999996,
+      "min": 0.3815805,
+      "max": 0.5301210999999999
+    },
+    "total_bench_ms": {
+      "median": 0.5020947499999999,
+      "min": 0.4536075,
+      "max": 0.6164978999999999
+    },
+    "rss_kb_after": {
+      "median": 4708.0,
+      "min": 4452,
+      "max": 4712
+    },
+    "protocol_bytes": 2929,
+    "allocated_disk_bytes": 1622016
+  },
+  {
+    "scenario": "baseline_dense_8",
+    "backend": "BTreeLMDB",
+    "process_trials": 10,
+    "prep_total_ms": {
+      "median": 10.483677499999999,
+      "min": 9.789096,
+      "max": 14.246984
+    },
+    "reconcile_ms": {
+      "median": 1.2942091999999998,
+      "min": 1.2007615,
+      "max": 2.4290864
+    },
+    "total_bench_ms": {
+      "median": 1.3904861999999998,
+      "min": 1.2980075,
+      "max": 2.5260164
+    },
+    "rss_kb_after": {
+      "median": 5512.0,
+      "min": 5416,
+      "max": 5560
+    },
+    "protocol_bytes": 2929,
+    "allocated_disk_bytes": 1654784
+  },
+  {
+    "scenario": "baseline_dense_8",
+    "backend": "NoAggWindowSliceAELMDB",
+    "process_trials": 10,
+    "prep_total_ms": {
+      "median": 11.457719,
+      "min": 10.379784,
+      "max": 14.499591
+    },
+    "reconcile_ms": {
+      "median": 0.43900184999999997,
+      "min": 0.40669829999999996,
+      "max": 0.6132565
+    },
+    "total_bench_ms": {
+      "median": 0.5246856,
+      "min": 0.47803920000000005,
+      "max": 0.6845745
+    },
+    "rss_kb_after": {
+      "median": 4836.0,
+      "min": 4692,
+      "max": 4864
+    },
+    "protocol_bytes": 2929,
+    "allocated_disk_bytes": 1622016
+  }
+]

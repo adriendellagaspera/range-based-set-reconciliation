@@ -1,0 +1,62 @@
+name: experimental
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'comparators/**'
+      - 'experiments/**'
+      - 'workloads/**'
+      - '.github/workflows/experimental.yml'
+  pull_request:
+    paths:
+      - 'comparators/**'
+      - 'experiments/**'
+      - 'workloads/**'
+      - '.github/workflows/experimental.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -Dwarnings
+  RUSTDOCFLAGS: -Dwarnings
+
+jobs:
+  comparators:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: comparators
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.85.0
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: comparators
+      - run: cargo fmt --all --check
+      - run: cargo clippy --all-targets -- -D warnings
+      - run: cargo test --all-targets
+      - run: cargo doc --no-deps
+
+  experiments:
+    runs-on: ubuntu-latest
+    env:
+      RUSTFLAGS: -Dwarnings --cfg rbsr_internal_testing
+      RUSTDOCFLAGS: -Dwarnings --cfg rbsr_internal_testing
+    defaults:
+      run:
+        working-directory: experiments
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.85.0
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: experiments
+      - run: cargo fmt --all --check
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo test --workspace
+      - run: cargo bench --workspace --no-run
+      - run: cargo doc --workspace --no-deps

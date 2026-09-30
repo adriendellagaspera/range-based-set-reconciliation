@@ -1,3 +1,4 @@
 [workspace]
 members = ["rsos", "rbsr"]
+exclude = ["comparators", "experiments"]
 resolver = "2"

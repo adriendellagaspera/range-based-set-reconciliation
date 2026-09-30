@@ -1,29 +1,22 @@
-# Range-Based Set Reconciliation
+# Set Reconciliation
 
-Rust implementations of the data structures and protocol primitives behind range-based set reconciliation.
+Exact and practical set reconciliation algorithms, data structures, experiments, and theory.
 
-## Origins and attribution
+This repository is the canonical home for set-reconciliation work maintained here. It is broader than Range-Based Set Reconciliation: RBSR and RSOS are shipping implementations alongside reproducible comparators, experiments, new constructions, formal models, workloads, and a versioned literature survey.
 
-The concepts implemented here come from the research literature; this repository does **not**
-claim to originate RBSR or RSOS.
+## Repository surfaces
 
-- **Range-Based Set Reconciliation (RBSR)** follows Aljoscha Meyer's *Range-Based Set
-  Reconciliation*, published at IEEE SRDS 2023 (pp. 59–69,
-  DOI: [10.1109/SRDS60354.2023.00016](https://doi.org/10.1109/SRDS60354.2023.00016);
-  preprint: [arXiv:2212.13567](https://arxiv.org/abs/2212.13567)).
-- **Range-Summarizable Order-Statistics Store (RSOS)** follows the abstraction formalized by
-  Elvio G. Amparore in *Range-Based Set Reconciliation via Range-Summarizable Order-Statistics
-  Stores* (2026, [arXiv:2603.19820](https://arxiv.org/abs/2603.19820)).
+1. **Shipping implementations** — `rsos/` and `rbsr/` are the stable, published Rust crates. They form the root Cargo workspace and keep their independent MSRV, packaging, and release lifecycle.
+2. **Comparators & experiments** — `comparators/` contains reproductions/adapters for algorithms from the literature; `experiments/` contains measurement harnesses, simulations, transport projections, instrumentation, and reporting. These are unpublished and isolated from the stable workspace.
+3. **New constructions & formal models** — new mechanisms belong in `constructions/`; formal problem definitions, cost models, conjectures, and lower-bound questions belong in `models/`. Directories are created only when a real artifact exists.
+4. **Literature** — `literature/` holds the versioned survey, bibliography, terminology map, evidence catalog, and provenance notes. External algorithms are attributed to their authors; this repository does not claim authorship of work from the literature.
 
-The Rust crates in this repository are independent implementations of those ideas. See
-[REFERENCES.md](REFERENCES.md) for full references and the mapping from the papers to the crates.
+Reproducible benchmark inputs live in `workloads/`. Generated large outputs do not.
 
-This repository contains two crates:
+## Stable crates
 
-- `rsos`: Range-Summarizable Order-Statistics Store primitives and `FingerprintTreeMap`.
-- `rbsr`: transport-independent Range-Based Set Reconciliation over any compatible RSOS backend.
-
-The protocol crate depends on the store abstraction, but neither crate depends on an async runtime, transport, wire codec, wall clock, persistence layer, or application-specific replication runtime.
+- `rsos` — Range-Summarizable Order-Statistics Store primitives and `FingerprintTreeMap`.
+- `rbsr` — transport-independent Range-Based Set Reconciliation over an RSOS-compatible backend.
 
 ```text
 rsos
@@ -33,47 +26,28 @@ rbsr
 application/runtime
 ```
 
-The code was extracted, with history preserved, from [`reconcile-rs`](https://github.com/adriendellagaspera/reconcile-rs). Product/runtime concerns such as `ReplicatedMap`, membership, tombstone stability, persistence, discovery, authentication, and UDP transport remain there.
+The stable crates do not depend on an async runtime, transport, wire codec, `reconcile-rs`, or experimental code. Intrinsic implementation benchmarks remain with those crates.
 
-## Crates
+`reconcile-rs` is a separate downstream runtime/consumer. Runtime concerns such as membership, persistence, authentication, transport, and application-level replication remain there.
 
-### `rsos`
+## Attribution
 
-```sh
-cargo add rsos
-```
+RBSR follows Aljoscha Meyer's *Range-Based Set Reconciliation* (SRDS 2023, DOI 10.1109/SRDS60354.2023.00016; arXiv:2212.13567). RSOS follows Elvio G. Amparore's *Range-Based Set Reconciliation via Range-Summarizable Order-Statistics Stores* (2026, arXiv:2603.19820).
 
-Provides the `Rsos` contract, range aggregates, canonical encoding, fingerprints, and the persistent `FingerprintTreeMap` implementation.
-
-### `rbsr`
-
-```sh
-cargo add rbsr
-```
-
-Provides `initial_ranges`, `protocol_round`, refinement policies, and the read-only `RsosView` contract used by the reconciliation driver.
-
-## Benchmarks
-
-Benchmarks live with the crate whose behavior they measure:
-
-- `cargo bench -p rsos --bench micro` measures `FingerprintTreeMap` construction, fill, insert/remove, and range-aggregate cost against `BTreeMap` controls where applicable.
-- `cargo bench -p rsos --bench contention` measures `FingerprintTreeMap` write contention against a `BTreeMap` control behind the same lock. With `RUSTFLAGS='--cfg rbsr_internal_testing'`, the same target also reports machine-independent cached-aggregate updates per insert.
-- `cargo bench -p rbsr --bench protocol` measures intrinsic RBSR work across store size, difference size, and clustering: protocol messages, ranges, IDLIST outcomes, RSOS queries, and CPU cost.
-- `cargo bench -p rbsr --bench history_independence` verifies that superseded mutation history does not change the RBSR trace once current states are identical, and measures reconciliation CPU cost.
-
-These are implementation benchmarks for the shipped RSOS/RBSR crates. Comparative algorithm research, transport projections, and Pareto-frontier experiments belong in `rbsr-research`; `ReplicatedMap`, membership, persistence, and network-runtime benchmarks belong in `reconcile-rs`.
+See `literature/` for the broader survey and evidence taxonomy.
 
 ## Development
 
-
-The workspace targets Rust 1.85+.
+Stable workspace:
 
 ```sh
 cargo fmt --all --check
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 cargo doc --workspace --no-deps
+cargo package --workspace
 ```
+
+Experimental/comparator checks are deliberately separate; see `experiments/` and CI.
 
 Licensed under either MIT or Apache-2.0, at your option.
