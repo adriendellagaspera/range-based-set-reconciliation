@@ -41,6 +41,9 @@ jobs:
 
   experiments:
     runs-on: ubuntu-latest
+    env:
+      RUSTFLAGS: -Dwarnings --cfg rbsr_internal_testing
+      RUSTDOCFLAGS: -Dwarnings --cfg rbsr_internal_testing
     defaults:
       run:
         working-directory: experiments
