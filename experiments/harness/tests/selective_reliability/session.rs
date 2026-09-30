@@ -18,13 +18,9 @@ use reconcile::replicated_map::Config;
 use reconcile::{InMemoryNetwork, ReplicatedMap};
 use tokio_util::sync::CancellationToken;
 
-use super::{
-    AckLedger, BitmapShared, BitmapTransport, DataWire, MAX_ACK_FLIGHTS_PER_FRAME,
-};
 use super::super::harness::{Fixture, Sample};
-use super::super::wire::{
-    FaultProfile, Metrics, Trace, BITMAP_ACK_BASE_LEN, BITMAP_ACK_ENTRY_LEN,
-};
+use super::super::wire::{FaultProfile, Metrics, Trace, BITMAP_ACK_BASE_LEN, BITMAP_ACK_ENTRY_LEN};
+use super::{AckLedger, BitmapShared, BitmapTransport, DataWire, MAX_ACK_FLIGHTS_PER_FRAME};
 
 struct ReplicaSpec<'a> {
     ip: IpAddr,
