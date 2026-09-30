@@ -1,24 +1,23 @@
 <!-- Imported from adriendellagaspera/rbsr-research PR #96, head eb84a667f804e56f04d350311ce314a45895bc45. Unqualified historical issue references in this document refer to the archived source tracker unless repointed. -->
 
-# `rbsr-research`
+# Set reconciliation research survey
 
-> Private research companion to the standalone RSOS/RBSR implementation and the `reconcile`
-> runtime, not a published library. It contains comparative benchmarks, transport projections,
-> oracle probes, experimental policies, and literature material.
->
-> | Topic | Canonical location |
-> |---|---|
-> | RSOS/RBSR implementation and intrinsic benchmarks | [`range-based-set-reconciliation`](https://github.com/adriendellagaspera/range-based-set-reconciliation) |
-> | ReplicatedMap/runtime implementation and benchmarks | [`reconcile-rs`](https://github.com/adriendellagaspera/reconcile-rs) |
-> | LWW/HLC primitive | [`lww-register`](https://github.com/adriendellagaspera/lww-register) |
-> | Comparative research, transport models, Pareto experiments | this repository |
-> | Literature material | survey panels, glossary, and bibliography below |
->
-> Implementation facts belong to the repository that ships the code. This repository owns
-> cross-algorithm comparisons, experimental variants, transport projections, and research claims.
-> Runtime crates may appear only as dev-only harness dependencies for explicit transport experiments
-> (for example `actual_*` and selective-reliability tests); they are not part of the research library
-> or its comparison core.
+This is the versioned research survey for the canonical `set-reconciliation` repository. It covers
+the literature, comparator landscape, experimental questions, and theoretical directions surrounding
+RBSR/RSOS and set reconciliation more broadly.
+
+| Topic | Canonical location |
+|---|---|
+| Stable RSOS/RBSR implementations and intrinsic benchmarks | `rsos/`, `rbsr/` |
+| Literature comparators and reproductions | `comparators/` |
+| Comparative research, transport models, probes, Pareto experiments | `experiments/` |
+| Reproducible workload manifests | `workloads/` |
+| Distributed/application runtime and runtime benchmarks | [`reconcile-rs`](https://github.com/adriendellagaspera/reconcile-rs) |
+| LWW/HLC primitive | [`lww-register`](https://github.com/adriendellagaspera/lww-register) |
+
+Implementation facts belong to the repository that ships the code. Runtime crates may appear only as
+dev-only harness dependencies for explicit transport experiments; they are not part of the stable
+`rsos`/`rbsr` workspace.
 
 ---
 
@@ -48,7 +47,7 @@ of the paragraph above is untouched — value-defined ranges are still not inter
 *cost* half was written against prolly-trees' cascading rechunking, and that reference point has
 moved twice since (Rawat et al., then this). The cell where both properties hold is **empty**: an HI
 tree carrying a composable 256-bit summary *and* subtree counts would be an RSOS and node-diffable at
-once, the only way to compare the two diff modes with the store held constant — [#29](https://github.com/adriendellagaspera/rbsr-research/issues/29).
+once, the only way to compare the two diff modes with the store held constant — [#46](https://github.com/adriendellagaspera/set-reconciliation/issues/46).
 
 ### 1.2 Consistency and conflict resolution
 
@@ -76,11 +75,11 @@ This survey maps alternatives to the RSOS and the protocol choices that remain o
 | split arity `b` | swept; `b` = 16, a per-node choice rather than a wire contract (upstream #257) |
 | enumeration threshold `t` | swept; no `t` beats not having one by default, conditional on value size and RTT (upstream #468/#315) |
 | width from a divergence signal | closed, and **not built** — the count is the only admissible signal, and it reads zero exactly where an LWW update lands ([#12](https://github.com/adriendellagaspera/rbsr-research/issues/12)) |
-| **split *position*** — exact rank-cut, jittered, uniform, skewed | **open.** Meyer §5.1 makes Def. 3.8's exactness non-load-bearing, Vogel et al. put maximal throughput at any arity *given the right split distribution*, and both founding contention-tree analyses assume fair coins ([#25](https://github.com/adriendellagaspera/rbsr-research/issues/25)) |
-| what a SPLIT transmits — sibling subtraction | measurable, and group-only, so it prices what the group buys ([#20](https://github.com/adriendellagaspera/rbsr-research/issues/20)) |
-| **round budget** — width from a byte ceiling rather than from `m` | **open, and deployed elsewhere**: Negentropy's `frameSizeLimit` bounds every frame and defers the rest, while the default here advertises a round over the datagram ceiling ([#22](https://github.com/adriendellagaspera/rbsr-research/issues/22), [#26](https://github.com/adriendellagaspera/rbsr-research/issues/26)) |
-| **where refinement starts** — the outer range, or a prior over the divergence | **open, and unclaimed in either dialect**: the one lever that shortens the chain without paying for rounds in bytes ([#27](https://github.com/adriendellagaspera/rbsr-research/issues/27)) |
-| parties — two, or N | half-closed: the retry claim is refuted by derivation, the constructive N-party family untouched (upstream #354, [#30](https://github.com/adriendellagaspera/rbsr-research/issues/30)) |
+| **split *position*** — exact rank-cut, jittered, uniform, skewed | **open.** Meyer §5.1 makes Def. 3.8's exactness non-load-bearing, Vogel et al. put maximal throughput at any arity *given the right split distribution*, and both founding contention-tree analyses assume fair coins ([#50](https://github.com/adriendellagaspera/set-reconciliation/issues/50)) |
+| what a SPLIT transmits — sibling subtraction | measurable, and group-only, so it prices what the group buys ([#54](https://github.com/adriendellagaspera/set-reconciliation/issues/54)) |
+| **round budget** — width from a byte ceiling rather than from `m` | **open, and deployed elsewhere**: Negentropy's `frameSizeLimit` bounds every frame and defers the rest, while the default here advertises a round over the datagram ceiling ([#22](https://github.com/adriendellagaspera/rbsr-research/issues/22), [#49](https://github.com/adriendellagaspera/set-reconciliation/issues/49)) |
+| **where refinement starts** — the outer range, or a prior over the divergence | **open, and unclaimed in either dialect**: the one lever that shortens the chain without paying for rounds in bytes ([#48](https://github.com/adriendellagaspera/set-reconciliation/issues/48)) |
+| parties — two, or N | half-closed: the retry claim is refuted by derivation, the constructive N-party family untouched (upstream #354, [#45](https://github.com/adriendellagaspera/set-reconciliation/issues/45)) |
 | dimension `δ` | no-go on paper; the obstruction is the summary, not the dimension, and the protocol side transports verbatim (upstream #360) |
 
 **Fix RBSR, vary what answers the queries.** Def. 3.9's five queries are an interface; an
@@ -88,19 +87,19 @@ aggregate-augmented B-tree is one implementation of it:
 
 | Instead of the RSOS | What it drops, what it buys | State |
 |---|---|---|
-| HI tree + conventional hash over clamped subtrees | drops the composable monoid, needs clamping-invariance; realized by G-trees | the standing counter-argument (the alternative discussed above), and the (HI × composable) cell is empty ([#29](https://github.com/adriendellagaspera/rbsr-research/issues/29)) |
-| AB-tree's concurrent aggregate maintenance, or a per-session snapshot | drops the root-path write every insert pays; the snapshot drops it from the write path entirely, at a staleness cost | **open**, and the recorded verdict rests on a reading under review ([#28](https://github.com/adriendellagaspera/rbsr-research/issues/28), upstream #359) |
+| HI tree + conventional hash over clamped subtrees | drops the composable monoid, needs clamping-invariance; realized by G-trees | the standing counter-argument (the alternative discussed above), and the (HI × composable) cell is empty ([#46](https://github.com/adriendellagaspera/set-reconciliation/issues/46)) |
+| AB-tree's concurrent aggregate maintenance, or a per-session snapshot | drops the root-path write every insert pays; the snapshot drops it from the write path entirely, at a staleness cost | **open**, and the recorded verdict rests on a reading under review ([#47](https://github.com/adriendellagaspera/set-reconciliation/issues/47), upstream #359) |
 | a persistent COW / content-addressed store (LMDB, AELMDB, prolly) | buys structural sharing, then cross-version identity — priced separately | upstream #271, #188 |
 | an aggregate-augmented LSM | write-optimized, aggregates falling out of compaction; but a sound SKIP needs the summary of the **merged** view | unexplored in either dialect, no issue |
-| a sketch instead of a store (RIBLT, CertainSync, MET-IBLT, PBS) | drops the order: one exchange, `Ω(n)` encoder, no partial-range or prefix sync | hybrid tracked ([#13](https://github.com/adriendellagaspera/rbsr-research/issues/13), [#5](https://github.com/adriendellagaspera/rbsr-research/issues/5), [#6](https://github.com/adriendellagaspera/rbsr-research/issues/6)) |
-| approximate or similarity-based (ART; LSH + IBLT) | drops exactness; LSH prices *distance between elements* rather than a count of differing keys | neither cited by any RBSR or PSR work ([#31](https://github.com/adriendellagaspera/rbsr-research/issues/31)) |
+| a sketch instead of a store (RIBLT, CertainSync, MET-IBLT, PBS) | drops the order: one exchange, `Ω(n)` encoder, no partial-range or prefix sync | hybrid tracked ([#55](https://github.com/adriendellagaspera/set-reconciliation/issues/55), [#59](https://github.com/adriendellagaspera/set-reconciliation/issues/59), [#58](https://github.com/adriendellagaspera/set-reconciliation/issues/58)) |
+| approximate or similarity-based (ART; LSH + IBLT) | drops exactness; LSH prices *distance between elements* rather than a count of differing keys | neither cited by any RBSR or PSR work ([#44](https://github.com/adriendellagaspera/set-reconciliation/issues/44)) |
 | a vector-commitment summary | buys a *proof* that a SKIP is honest | open, no issue: the union bound covers accidental collisions, never a lying peer |
 
 Two readings the map supports and no single source states. **Latency has no lever left inside RBSR** —
 every remaining one trades bytes for rounds — so the single-shot hybrid and a prior over the
 divergence are the only two candidates, and they are also the two least-explored rows. And
 **exactness may not be uniform across an RSOS's two components**: the fingerprint carries the SKIP's
-soundness while part of what the count carries is balance, which is the separation [#28](https://github.com/adriendellagaspera/rbsr-research/issues/28) tests
+soundness while part of what the count carries is balance, which is the separation [#47](https://github.com/adriendellagaspera/set-reconciliation/issues/47) tests
 rather than asserts.
 
 ---
@@ -146,7 +145,7 @@ rather than asserts.
 | **SMT** (*Sparse Merkle Tree*) | Merkle tree over a huge, mostly-empty key space; compact inclusion/exclusion proofs. |
 | **Merkle tree / Merkle root** | Hash tree where each node hashes its children; the root summarizes everything. Basis of classic anti-entropy. |
 | **Merkle-DAG / Merkle-CRDT** | Content-addressed, hash-linked DAG (IPFS); the links encode causal history (Merkle-CRDT, arXiv:2004.00107). |
-| **IBLT** (*Invertible Bloom Lookup Table*) | A structure encoding a set into cells (XOR of key/hash + counter); subtracting two IBLTs reveals the symmetric difference via "peeling". Comm. ∝ d. A fixed one-shot capacity normally needs d known; Wu et al.'s pre-peeling statistic instead measures d from a first attempt ([#36](https://github.com/adriendellagaspera/rbsr-research/issues/36)). |
+| **IBLT** (*Invertible Bloom Lookup Table*) | A structure encoding a set into cells (XOR of key/hash + counter); subtracting two IBLTs reveals the symmetric difference via "peeling". Comm. ∝ d. A fixed one-shot capacity normally needs d known; Wu et al.'s pre-peeling statistic instead measures d from a first attempt ([#43](https://github.com/adriendellagaspera/set-reconciliation/issues/43)). |
 | **Rateless IBLT (RIBLT)** | *Practical Rateless Set Reconciliation*, SIGCOMM 2024. An infinite stream of coded symbols (fountain code); decodes as soon as ~d symbols are received. **No need for d**, linear compute, adversarially robust. **Single-shot SOTA choice.** |
 | **minisketch / PinSketch** | Bitcoin Core library implementing PinSketch (BCH formulation of reconciliation). Comm. **optimal ≈ b·d**, O(d²) decoding, capacity to predefine. |
 | **CPI / CPISync** (*Characteristic Polynomial Interpolation*) | Encodes the set as the roots of a polynomial; the ratio of the polynomials yields the difference. Minsky-Trachtenberg-Zippel. O(d³) decoding. |
@@ -208,7 +207,7 @@ rather than asserts.
 | **incremental / homomorphic hash** | A set hash updated incrementally and composable. **MSet-XOR-Hash** (weak, self-inverse and GF(2)-linear), **MSet-Mu-Hash** (finite field), **LtHash** (lattice/vector addition, closest in spirit to reconcile-rs's hash-then-add-mod-2²⁵⁶ combiner) — the F6 fix moved off MSet-XOR-Hash onto this family. |
 | **transitive group** | The minimal algebraic structure required of an RBSR fingerprint (associativity, identity, inverses, transitivity) — XOR satisfies it, hence its convenience *and* its fragility. |
 | **MAC / HMAC / AEAD** | Message Authentication Code; HMAC (hash-based); Authenticated Encryption with Associated Data. The F3 fix. |
-| **TLS / DTLS / Noise / QUIC** | Secure transport layers (DTLS = TLS over datagrams; Noise = a handshake framework; QUIC = encrypted transport over UDP). Options for F3; cf. issue #96. |
+| **TLS / DTLS / Noise / QUIC** | Secure transport layers (DTLS = TLS over datagrams; Noise = a handshake framework; QUIC = encrypted transport over UDP). Options for F3; see the transport/security work tracked in the unified issue tracker. |
 | **spoofing / amplification / reflection / DRDoS** | Forging the source IP (trivial in UDP); a response larger than the request toward a victim; distributed reflection denial of service. The F9 surface. |
 | **bincode allocation bomb** | Deserialization where an attacker-controlled length prefix forces a massive pre-allocation (F18). |
 | **UDP / datagram / MTU** | Connectionless, unreliable protocol with a spoofable source; bounded datagram; *Maximum Transmission Unit*. |
@@ -304,18 +303,18 @@ Evidence rows use `evidence_id`, `source_version_section`, `artifact_repo_commit
 | `selfsizing.prod90d` | `arXiv:2608.26537v1` §5.2; `whitewum/self-sizing@4ba615ca76978564d5d7d4b75424a680cae6f21d` is an observed public revision that postdates v1 | 90-day production difference profile; workload characterization only, not an online self-sizing run | `observed` | raw production records and exact paper build unavailable; production workload/lifecycle evidence, not a pilot |
 | `selfsizing.relational_replay` | `arXiv:2608.26537v1` §5.3; same post-v1 public revision caveat | cross-engine replay of production-shaped relational tables; exact difference discovery boundary | `adapted` | source tables/identities are not public; relational replay evidence, not a pilot |
 | `selfsizing.redis_kv` | `arXiv:2608.26537v1` §5.4 / Appendix R; same post-v1 public revision caveat | production infrastructure with production-shape KV data; frozen Redis 7.2.10 scan case, exact difference / ID resolution; source scale ≈4,890,077 keys; G1 and G2 only | `adapted` | G2 insert/delete/update composition is unknown; production snapshots/keys are not public; selected as `scan.redis72.g1g2` |
-| `riblt.ethereum_snapshots` | Rateless IBLT v3; `yangl1996/riblt@297bf35be8029cd028772ab29f05962bd7eb005e` | Ethereum snapshot evidence and lifecycle context; maintained universal coded-symbol cache is optional capability, not this issue's pilot | `observed` | datastore maintenance economics are not established here; re-evaluate maintained cache in #53 |
+| `riblt.ethereum_snapshots` | Rateless IBLT v3; `yangl1996/riblt@297bf35be8029cd028772ab29f05962bd7eb005e` | Ethereum snapshot evidence and lifecycle context; maintained universal coded-symbol cache is optional capability, not this issue's pilot | `observed` | datastore maintenance economics are not established here; re-evaluate maintained cache in #35 |
 | `rsos.aelmdb_synthetic` | `arXiv:2603.19820`; `amparore/bench-aelmdb@e74b695328a60370f89887915c428747b19ccec8` | synthetic `base_dense_i`, `i=1..8`; BTreeLMDB / NoWndAELMDB / AELMDB with source Negentropy parameters and cost accounting | `exact` | paper-unspecified set-difference counterparts stay unknown; selected as `ordered.aelmdb.base_dense` |
-| `adaptive.synthetic_mininet` | AdaptiveIBLT / `arXiv:2608.15921`; exact public paper-implementation revision not established/localized | synthetic Mininet evaluation context | `observed` | no reproducible artifact pinned by #39; simulation evidence only, not a pilot |
-| `adaptive.lightning_snapshots` | AdaptiveIBLT / `arXiv:2608.15921`; same revision boundary | Lightning snapshot evaluation context | `observed` | no reproducible artifact pinned by #39; Lightning evidence only, not a pilot |
+| `adaptive.synthetic_mininet` | AdaptiveIBLT / `arXiv:2608.15921`; exact public paper-implementation revision not established/localized | synthetic Mininet evaluation context | `observed` | no reproducible artifact pinned by #41; simulation evidence only, not a pilot |
+| `adaptive.lightning_snapshots` | AdaptiveIBLT / `arXiv:2608.15921`; same revision boundary | Lightning snapshot evaluation context | `observed` | no reproducible artifact pinned by #41; Lightning evidence only, not a pilot |
 
-Exactly two pilots are frozen under `rbsr-research/benches/fixtures/datastore-workloads/`:
+Exactly two pilots are frozen under `workloads/datastore/`:
 `scan.redis72.g1g2.json` (Redis 7.2.10 G1/G2, `adapted`) and
 `ordered.aelmdb.base_dense.json` (`base_dense_i`, `i=1..8`, `exact`). Their manifests are the
 measurement contract; implementation and tuning are deliberately deferred.
 
-**Deferred.** Rateless maintained cache → wake when #53 treats lifecycle. AdaptiveIBLT → wake when
-#39 has a reproducible artifact. Stop at seven evidence rows and exactly two manifests: Pika,
+**Deferred.** Rateless maintained cache → wake when #35 treats lifecycle. AdaptiveIBLT → wake when
+#41 has a reproducible artifact. Stop at seven evidence rows and exactly two manifests: Pika,
 Ethereum and Lightning are not pilots; ConflictSync, Rateless Bloom Filters, new datastore
 integrations and broad benchmark variants remain out of scope.
 
@@ -325,7 +324,7 @@ integrations and broad benchmark variants remain out of scope.
 - A. Meyer, *Range-Based Set Reconciliation*, arXiv:2212.13567 (IEEE SRDS 2023) — https://arxiv.org/abs/2212.13567 ; primer: https://logperiodic.com/rbsr.html
 - L. Yang, Y. Gilad, M. Alizadeh, *Practical Rateless Set Reconciliation*, SIGCOMM 2024, arXiv:2402.02668 — https://arxiv.org/abs/2402.02668 ; impl. https://github.com/yangl1996/riblt
 - minisketch (Bitcoin Core), an optimized PinSketch/BCH-syndrome implementation — https://github.com/bitcoin-core/minisketch ; protocol design notes: https://github.com/bitcoin-core/minisketch/blob/master/doc/protocoltips.md ; BIP 330 — https://bips.dev/330/
-  **Bears on:** a communication-first comparator with exactly `b·c` sketch bits for `b`-bit elements and capacity `c`; the implementation documents incremental extension and adaptive subdivision for unknown differences. Practical qualification is tracked in [#92](https://github.com/adriendellagaspera/rbsr-research/issues/92).
+  **Bears on:** a communication-first comparator with exactly `b·c` sketch bits for `b`-bit elements and capacity `c`; the implementation documents incremental extension and adaptive subdivision for unknown differences. Practical qualification is tracked in [#22](https://github.com/adriendellagaspera/set-reconciliation/issues/22).
 - Erlay (Naumenko et al., CCS 2019) — https://arxiv.org/abs/1905.10518
 - E. G. Amparore, *RBSR via Range-Summarizable Order-Statistics Stores* (RSOS / AELMDB), arXiv:2603.19820 (2026) — https://arxiv.org/html/2603.19820 ; software: AELMDB https://github.com/amparore/aelmdb, Negentropy integration https://github.com/amparore/negentropy-aelmdb, benchmark harness https://github.com/amparore/bench-aelmdb
 - A. Meyer, K. Scherer, *Range-Based Set Reconciliation without Homomorphic Hashing*, preprint 2024 —
@@ -352,7 +351,7 @@ integrations and broad benchmark variants remain out of scope.
   Certainty*, `arXiv:2504.08314v1` (2025) — https://arxiv.org/abs/2504.08314
   **Bears on:** rateless reconciliation with a deterministic listing guarantee once its communication
   threshold is reached, without a prior difference-size estimator. Its finite-size/runtime relevance
-  beside RIBLT and MET-IBLT is tracked in [#93](https://github.com/adriendellagaspera/rbsr-research/issues/93).
+  beside RIBLT and MET-IBLT is tracked in [#21](https://github.com/adriendellagaspera/set-reconciliation/issues/21).
 - *ConflictSync: Bandwidth Efficient Synchronization of Divergent State*, arXiv:2505.01144v1 (2025,
   Baquero group; published PaPoC 2026 — 13th Workshop on Principles and Practice of Consistency for
   Distributed Data, April 2026) — the first digest-driven synchronisation algorithm for state-based
@@ -418,7 +417,7 @@ arXiv:2509.02373 and arXiv:2603.19820 are primary sources; other entries are sum
   refinement this repository measures — and from the same BU technical-report series
   [§3.1](#31-cross-community-vocabulary) traces both dialects' ancestor to, which is what makes its
   absence from both reference lists surprising rather than merely notable.
-  → [§1.3](#13-the-design-space-rbsr-variants-over-an-rsos-and-alternatives-to-the-rsos), [#31](https://github.com/adriendellagaspera/rbsr-research/issues/31)
+  → [§1.3](#13-the-design-space-rbsr-variants-over-an-rsos-and-alternatives-to-the-rsos), [#44](https://github.com/adriendellagaspera/set-reconciliation/issues/44)
 - **M. Mitzenmacher, T. Morgan**, *Robust Set Reconciliation via Locality Sensitive Hashing*,
   `doi:10.1145/3294052.3319690` (ACM PODS 2019; preprint `arXiv:1807.09694`) —
   https://arxiv.org/abs/1807.09694
@@ -427,7 +426,7 @@ arXiv:2509.02373 and arXiv:2603.19820 are primary sources; other entries are sum
   pairs, so an LWW update to an existing key — the divergence a KV store actually accumulates, and
   where the count signal reads zero ([#12](https://github.com/adriendellagaspera/rbsr-research/issues/12)) — is priced as a full difference. A
   `lift`-then-add summary is deliberately distance-destroying, so this is the argument that a different summary prices a different workload, not an adaptation of this one.
-  → [§1.3](#13-the-design-space-rbsr-variants-over-an-rsos-and-alternatives-to-the-rsos), [#31](https://github.com/adriendellagaspera/rbsr-research/issues/31)
+  → [§1.3](#13-the-design-space-rbsr-variants-over-an-rsos-and-alternatives-to-the-rsos), [#44](https://github.com/adriendellagaspera/set-reconciliation/issues/44)
 - **M. Mitzenmacher, R. Pagh**, *Simple multi-party set reconciliation*,
   `doi:10.1007/s00446-017-0316-0` (Distributed Computing 31(6), 2018; preprint `arXiv:1311.2037`) —
   https://arxiv.org/abs/1311.2037
@@ -439,33 +438,33 @@ arXiv:2509.02373 and arXiv:2603.19820 are primary sources; other entries are sum
   https://arxiv.org/abs/2211.05472
   **Bears on:** MET-IBLTs reconcile without a prior estimate of `|d|` and avoid committing to one
   worst-case table size. They are a distinct rate-compatible comparator beside RIBLT and self-sizing
-  IBLT; finite-size/runtime qualification is tracked in [#93](https://github.com/adriendellagaspera/rbsr-research/issues/93).
+  IBLT; finite-size/runtime qualification is tracked in [#21](https://github.com/adriendellagaspera/set-reconciliation/issues/21).
 - **M. Wu, J. Qi, C. Luo, S. Lu, Z. Ye, Z. Wei**, *IBLTs Measure Before They Decode:
   Self-Sizing Set Reconciliation from Pre-Peeling Counts*, `arXiv:2608.26537v1` (2026) —
   https://arxiv.org/abs/2608.26537 ; reference artifact:
   https://github.com/whitewum/self-sizing/tree/4ba615ca76978564d5d7d4b75424a680cae6f21d
   **Bears on:** a failed first IBLT estimates `d` from pre-peeling counts with no extra estimator
   payload, so unknown `d` is no longer a clean discriminator between range refinement and classical
-  IBLTs. Core qualification and cumulative M1+M2 accounting live in [#36](https://github.com/adriendellagaspera/rbsr-research/issues/36).
+  IBLTs. Core qualification and cumulative M1+M2 accounting live in [#43](https://github.com/adriendellagaspera/set-reconciliation/issues/43).
 - **X. Chen, A. Sinha, D. Starobinski, A. Trachtenberg**, *Scaling the Lightning Network with
   Practical Set Reconciliation*, `arXiv:2608.15921` (IEEE ICBC 2026) —
   https://arxiv.org/abs/2608.15921
   **Bears on:** ADAPTIVEIBLT adapts IBLT reconciliation and adds partial-decoding reuse, making a
   failed/undersized attempt potentially useful progress rather than pure sunk cost. Reproduction and
-  composition with self-sizing are tracked in [#39](https://github.com/adriendellagaspera/rbsr-research/issues/39)
-  and [#40](https://github.com/adriendellagaspera/rbsr-research/issues/40).
+  composition with self-sizing are tracked in [#41](https://github.com/adriendellagaspera/set-reconciliation/issues/41)
+  and [#40](https://github.com/adriendellagaspera/set-reconciliation/issues/40).
 - **R. Xu, K. Zhou, J. Xu, J. Guo, B. Xian, K. Yang, T. Yang, Y. Cui**, *Toward Optimal Time-Space
   Tradeoffs for Set Reconciliation*, `arXiv:2609.14442` (2026) —
   https://arxiv.org/abs/2609.14442 ; implementation: https://github.com/djwj233/XYZ-Sketch
   **Bears on:** XYZ-Sketch claims, for sufficiently large `d`, near-minimal communication together
   with O(1) insertion and O(d log V) decoding under its model. The theorem assumptions, finite-size
-  regime and datastore adaptation are tracked in [#61](https://github.com/adriendellagaspera/rbsr-research/issues/61).
+  regime and datastore adaptation are tracked in [#29](https://github.com/adriendellagaspera/set-reconciliation/issues/29).
 - **J. Klausen, R. Pagh, S. Walzer**, *Stuffed IBLTs: Optimal Linear Multiset Sketches*,
   `arXiv:2609.17487` (2026) — https://arxiv.org/abs/2609.17487
   **Bears on:** near-information-theoretic space for bounded-support/multiplicity linear sketches,
   with constant-time updates and linear decoding in the stated asymptotic regime. Practical constants
-  and set-reconciliation relevance are tracked in [#62](https://github.com/adriendellagaspera/rbsr-research/issues/62);
-  theorem-level consequences also feed the fundamental-research roadmap [#95](https://github.com/adriendellagaspera/rbsr-research/issues/95).
+  and set-reconciliation relevance are tracked in [#28](https://github.com/adriendellagaspera/set-reconciliation/issues/28);
+  theorem-level consequences also feed the fundamental-research roadmap [#19](https://github.com/adriendellagaspera/set-reconciliation/issues/19).
 - **M. Goodrich, M. Mitzenmacher**, *Invertible Bloom lookup tables*, Allerton 2011 ·
   **D. Eppstein, M. Goodrich, F. Uyeda, G. Varghese**, *What's the difference? Efficient set
   reconciliation without prior context*, `doi:10.1145/2043164.2018462` (SIGCOMM 2011) ·
@@ -484,16 +483,16 @@ arXiv:2509.02373 and arXiv:2603.19820 are primary sources; other entries are sum
   skip-trees, MST **and** prolly-trees, with `k`-ary members for block storage — by the author of
   `arXiv:2212.13567`. It is the realization Meyer–Scherer's non-homomorphic RBSR runs over, and it
   moves the reference point [§1.1](#11-merkle--anti-entropy-structures)'s cost claim was written
-  against. → [§1.1](#11-merkle--anti-entropy-structures), [§1.3](#13-the-design-space-rbsr-variants-over-an-rsos-and-alternatives-to-the-rsos), [#29](https://github.com/adriendellagaspera/rbsr-research/issues/29)
+  against. → [§1.1](#11-merkle--anti-entropy-structures), [§1.3](#13-the-design-space-rbsr-variants-over-an-rsos-and-alternatives-to-the-rsos), [#46](https://github.com/adriendellagaspera/set-reconciliation/issues/46)
 - **R. E. Tarjan, C. Levy, S. Timmel**, *Zip Trees*, `arXiv:1806.06726` · `doi:10.1145/3476830` (ACM
   TALG 17(4), 2021) — https://arxiv.org/abs/1806.06726 · **O. Gila, M. T. Goodrich, R. E. Tarjan**,
   *Zip-zip Trees*, `arXiv:2307.07660` (WADS 2023, `doi:10.1007/978-3-031-38906-1_31`; Algorithmica,
   `doi:10.1007/s00453-025-01364-2`, 2025) — https://arxiv.org/abs/2307.07660
   **Bears on:** the binary members of the G-tree family and the reason history-independence is now
   cheap — `Θ(lg lg n)` bits of rank metadata per node, strong history-independence by isomorphism
-  with skip lists, and no rolling hash. What [#29](https://github.com/adriendellagaspera/rbsr-research/issues/29)'s
+  with skip lists, and no rolling hash. What [#46](https://github.com/adriendellagaspera/set-reconciliation/issues/46)'s
   empty cell would have to carry the `Rsos<K>` augmentations on top of.
-  → [§1.1](#11-merkle--anti-entropy-structures), [#29](https://github.com/adriendellagaspera/rbsr-research/issues/29)
+  → [§1.1](#11-merkle--anti-entropy-structures), [#46](https://github.com/adriendellagaspera/set-reconciliation/issues/46)
 - J. Gustafson, *Merklizing the key/value store* (Merkle radix / SMT) — https://joelgustafson.com/posts/2023-05-04/merklizing-the-key-value-store-for-fun-and-profit/
 - Merkle-CRDTs, arXiv:2004.00107 — https://arxiv.org/abs/2004.00107
 - Dynamo (DeCandia et al., SOSP 2007) — https://www.allthingsdistributed.com/files/amazon-dynamo-sosp2007.pdf
