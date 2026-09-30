@@ -72,15 +72,15 @@ This survey maps alternatives to the RSOS and the protocol choices that remain o
 
 | Degree of freedom | State |
 |---|---|
-| split arity `b` | swept; `b` = 16, a per-node choice rather than a wire contract (upstream #257) |
-| enumeration threshold `t` | swept; no `t` beats not having one by default, conditional on value size and RTT (upstream #468/#315) |
+| split arity `b` | swept; `b` = 16, a per-node choice rather than a wire contract ([reconcile-rs#257](https://github.com/adriendellagaspera/reconcile-rs/issues/257)) |
+| enumeration threshold `t` | swept; no `t` beats not having one by default, conditional on value size and RTT ([reconcile-rs#468](https://github.com/adriendellagaspera/reconcile-rs/issues/468) / [reconcile-rs#315](https://github.com/adriendellagaspera/reconcile-rs/issues/315)) |
 | width from a divergence signal | closed, and **not built** — the count is the only admissible signal, and it reads zero exactly where an LWW update lands (`experiments/harness/src/policy.rs` count-delta probe) |
 | **split *position*** — exact rank-cut, jittered, uniform, skewed | **open.** Meyer §5.1 makes Def. 3.8's exactness non-load-bearing, Vogel et al. put maximal throughput at any arity *given the right split distribution*, and both founding contention-tree analyses assume fair coins ([#50](https://github.com/adriendellagaspera/set-reconciliation/issues/50)) |
 | what a SPLIT transmits — sibling subtraction | measurable, and group-only, so it prices what the group buys ([#54](https://github.com/adriendellagaspera/set-reconciliation/issues/54)) |
 | **round budget** — width from a byte ceiling rather than from `m` | **open, and deployed elsewhere**: Negentropy's `frameSizeLimit` bounds every frame and defers the rest, while the default here advertises a round over the datagram ceiling ([#49](https://github.com/adriendellagaspera/set-reconciliation/issues/49)) |
 | **where refinement starts** — the outer range, or a prior over the divergence | **open, and unclaimed in either dialect**: the one lever that shortens the chain without paying for rounds in bytes ([#48](https://github.com/adriendellagaspera/set-reconciliation/issues/48)) |
-| parties — two, or N | half-closed: the retry claim is refuted by derivation, the constructive N-party family untouched (upstream #354, [#45](https://github.com/adriendellagaspera/set-reconciliation/issues/45)) |
-| dimension `δ` | no-go on paper; the obstruction is the summary, not the dimension, and the protocol side transports verbatim (upstream #360) |
+| parties — two, or N | half-closed: the retry claim is refuted by derivation, the constructive N-party family untouched ([reconcile-rs#354](https://github.com/adriendellagaspera/reconcile-rs/issues/354), [#45](https://github.com/adriendellagaspera/set-reconciliation/issues/45)) |
+| dimension `δ` | no-go on paper; the obstruction is the summary, not the dimension, and the protocol side transports verbatim ([reconcile-rs#360](https://github.com/adriendellagaspera/reconcile-rs/issues/360)) |
 
 **Fix RBSR, vary what answers the queries.** Def. 3.9's five queries are an interface; an
 aggregate-augmented B-tree is one implementation of it:
@@ -88,8 +88,8 @@ aggregate-augmented B-tree is one implementation of it:
 | Instead of the RSOS | What it drops, what it buys | State |
 |---|---|---|
 | HI tree + conventional hash over clamped subtrees | drops the composable monoid, needs clamping-invariance; realized by G-trees | the standing counter-argument (the alternative discussed above), and the (HI × composable) cell is empty ([#46](https://github.com/adriendellagaspera/set-reconciliation/issues/46)) |
-| AB-tree's concurrent aggregate maintenance, or a per-session snapshot | drops the root-path write every insert pays; the snapshot drops it from the write path entirely, at a staleness cost | **open**, and the recorded verdict rests on a reading under review ([#47](https://github.com/adriendellagaspera/set-reconciliation/issues/47), upstream #359) |
-| a persistent COW / content-addressed store (LMDB, AELMDB, prolly) | buys structural sharing, then cross-version identity — priced separately | upstream #271, #188 |
+| AB-tree's concurrent aggregate maintenance, or a per-session snapshot | drops the root-path write every insert pays; the snapshot drops it from the write path entirely, at a staleness cost | **open**, and the recorded verdict rests on a reading under review ([#47](https://github.com/adriendellagaspera/set-reconciliation/issues/47), [reconcile-rs#359](https://github.com/adriendellagaspera/reconcile-rs/issues/359)) |
+| a persistent COW / content-addressed store (LMDB, AELMDB, prolly) | buys structural sharing, then cross-version identity — priced separately | [reconcile-rs#271](https://github.com/adriendellagaspera/reconcile-rs/issues/271), [reconcile-rs#188](https://github.com/adriendellagaspera/reconcile-rs/issues/188) |
 | an aggregate-augmented LSM | write-optimized, aggregates falling out of compaction; but a sound SKIP needs the summary of the **merged** view | unexplored in either dialect, no issue |
 | a sketch instead of a store (RIBLT, CertainSync, MET-IBLT, PBS) | drops the order: one exchange, `Ω(n)` encoder, no partial-range or prefix sync | hybrid tracked ([#55](https://github.com/adriendellagaspera/set-reconciliation/issues/55), [#59](https://github.com/adriendellagaspera/set-reconciliation/issues/59), [#58](https://github.com/adriendellagaspera/set-reconciliation/issues/58)) |
 | approximate or similarity-based (ART; LSH + IBLT) | drops exactness; LSH prices *distance between elements* rather than a count of differing keys | neither cited by any RBSR or PSR work ([#44](https://github.com/adriendellagaspera/set-reconciliation/issues/44)) |
@@ -130,7 +130,7 @@ rather than asserts.
 | **RBSR** (*Range-Based Set Reconciliation*) | Algorithm family (Meyer 2023): the peers maintain a family of pairwise disjoint **active ranges**, initially one **outer range**; each **protocol round**, a peer answers every active range it was asked about with **SKIP** (aggregates match → *resolved*), **IDLIST** (send the range's ordered contents outright) or **SPLIT** (replace it by a balanced family of **child ranges**). The result is the **symmetric difference** Δ(X, Y). Vocabulary and Algorithm 1 as formalized in arXiv:2603.19820 §4. The standalone `rbsr` crate implements this family with `FixedFanOut(b = 16)` as its default shipped policy; `SqrtFanOut` is an alternative policy, not the default. At fixed `b`, refinement depth is logarithmic in `n`. |
 | **RSOS** (*Range-Summarizable Order-Statistics Store*) | Abstraction (arXiv:2603.19820, 2026): an ordered set offering **composable** range summaries + rank/select navigation. An augmented B+-tree realizes it → **the FingerprintTreeMap is an RSOS**. |
 | **AELMDB** | **Persistent** RSOS implementation (LMDB extension, memory-mapped) from the 2026 paper, evaluated with Negentropy. The most direct competitor to the FingerprintTreeMap. Aggregates live in **branch pages** (`[child pgno \| aggregates \| separator key]`); the element summary is a byte slice *extracted* from the record, never hashed by the engine. Not content-addressed. |
-| **LMDB** | Lightning Memory-Mapped Database: a copy-on-write, memory-mapped B+-tree with lock-free MVCC readers and a single writer. AELMDB's host engine, and the closest existing thing to what #271 proposes to build. |
+| **LMDB** | Lightning Memory-Mapped Database: a copy-on-write, memory-mapped B+-tree with lock-free MVCC readers and a single writer. AELMDB's host engine, and the closest existing thing to what [reconcile-rs#271](https://github.com/adriendellagaspera/reconcile-rs/issues/271) proposes to build. |
 | **Counted B-tree** | (Tatham, 2004) A B-tree carrying per-subtree element counts, giving O(log n) rank/select. The order-statistic half of RSOS, as a standalone classic. |
 | **AB-tree** | (Zhao et al., VLDB 2022) A page-oriented tree maintaining aggregate metadata **under concurrent updates**; evidence that aggregate augmentation and concurrency compose, and the reference point for root-aggregate write contention. |
 | **Embedded Merkle B-tree (EMB-tree)** | (Li et al., SIGMOD 2006) A B-tree caching digests in its nodes for **authenticated query answering** over outsourced databases. Prior art for "digests inside a B-tree", with a different goal (proofs, not range aggregation). |
@@ -231,12 +231,12 @@ rather than asserts.
 |---|---|
 | **MSRV** (*Minimum Supported Rust Version*) | The minimum supported Rust version; absent from `Cargo.toml` (F17). |
 | **clippy / `-Dwarnings`** | The Rust linter; CI treating warnings as errors. The `mismatched_lifetime_syntaxes` warning (`fingerprint_tree_map_iter.rs:177`) would break CI (F17). |
-| **miri** | An interpreter detecting UB (*Undefined Behavior*); not applicable here — the crate is `#![forbid(unsafe_code)]` and all iterators are safe Rust (since `d030c15`). The CI gap for F17 is now the undeclared MSRV ([#189](https://github.com/Akvize/reconcile-rs/issues/189)). |
+| **miri** | An interpreter detecting UB (*Undefined Behavior*); not applicable here — the crate is `#![forbid(unsafe_code)]` and all iterators are safe Rust (since `d030c15`). The CI gap for F17 is now the undeclared MSRV ([#189](https://github.com/adriendellagaspera/reconcile-rs/issues/189)). |
 | **proptest / quickcheck / fuzzing** | Property-based / generative / random-input testing. **Entirely absent** (F11). |
 | **`cargo audit` / `cargo deny`** | Vulnerability audit / dependency policies. Absent from CI (F19). |
 | **bincode / serde / tokio / parking_lot / arrayvec / ipnet / range-cmp / chrono / rand / once_cell / tracing** | Dependencies: binary serialization; (de)serialization; async runtime; non-poisoning locks; `ArrayVec` (inline vector, B-tree nodes); network/CIDR types; key↔range comparison (`RangeOrdering`); `DateTime<Utc>` (LWW timestamps); randomness; lazy init; structured logs. |
 | **`Arc` / `RwLock` / `unwrap` / `panic=abort` / `overflow-checks`** | Atomic shared pointer; reader-writer lock; panicking unwrap; panic strategy; arithmetic-overflow checking (disabled in release → F7). |
-| **`ExactSizeIterator` / `FusedIterator` / `DoubleEndedIterator`** | Rust iterator traits targeted by issue #92 (full RSOS contract). |
+| **`ExactSizeIterator` / `FusedIterator` / `DoubleEndedIterator`** | Rust iterator traits targeted by [reconcile-rs#92](https://github.com/adriendellagaspera/reconcile-rs/issues/92) (full RSOS contract). |
 
 ---
 
@@ -287,7 +287,7 @@ states that a version appeared as **Scalable Set Reconciliation** at Allerton 20
 | Information theory / networking | IEEE Trans. Inf. Theory, **IEEE TNSM**, IEEE Trans. Commun., SIGCOMM, ISIT | partitioned set reconciliation, characteristic polynomial interpolation, PinSketch/BCH, IBLT, MET-IBLT, rateless |
 | Random access / MAC — *EPSR's source* | IEEE Trans. Inf. Theory, IEEE Trans. Commun., ISIT, GLOBECOM | tree algorithms, collision resolution, splitting algorithms, **`Q`-ary** / **`d`-ary**, Capetanakis, Tsybakov–Mikhailov |
 
-### 3.2 Datastore workload provenance — #49
+### 3.2 Datastore workload provenance
 
 Evidence rows use `evidence_id`, `source_version_section`, `artifact_repo_commit`, `dataset_origin`,
 `access_license`, `evidence_class`, `task_boundary`, `logical_identity`, `view_semantics`,
@@ -339,7 +339,7 @@ integrations and broad benchmark variants remain out of scope.
   "can protect against malicious input only by randomizing the tree construction for each
   reconciliation session", CPI/IBLT/RIBLT likewise, leaving RBSR "the only algorithm to handle
   adversarial inputs without resorting to per-session randomization". That is the same property
-  A protocol without per-session randomization also has no independent trial per peer. → [#354](https://github.com/Akvize/reconcile-rs/issues/354)
+  A protocol without per-session randomization also has no independent trial per peer. → [#354](https://github.com/adriendellagaspera/reconcile-rs/issues/354)
 - L. Gong, Z. Liu, L. Liu, J. Xu, M. Ogihara, T. Yang, *Space- and computationally-efficient set
   reconciliation via Parity Bitmap Sketch (PBS)*, VLDB 14(4), 2020 — a further point on the
   communication/computation Pareto front, alongside RIBLT and minisketch.
@@ -372,14 +372,14 @@ arXiv:2509.02373 and arXiv:2603.19820 are primary sources; other entries are sum
   the parent's, so a **group**-valued summary saves one transmission per split where a monoid or a
   conventional hash cannot — `Fingerprint` (add/sub mod 2²⁵⁶) qualifies. Their near-halving is
   specific to **binary** partitioning; at fan-out `b` the saving is `1/b`, ~6 % at `b` = 16.
-  → [#298](https://github.com/Akvize/reconcile-rs/issues/298), [#45](https://github.com/adriendellagaspera/reconcile-rs/issues/45).
+  → [#298](https://github.com/adriendellagaspera/reconcile-rs/issues/298), [#45](https://github.com/adriendellagaspera/reconcile-rs/issues/45).
 - **N. Boškov, A. Trachtenberg, D. Starobinski**, *GenSync: A New Framework for Benchmarking and
   Optimizing Reconciliation of Data*, `doi:10.1109/TNSM.2022.3164369` (IEEE TNSM 19(4), 2022) —
   https://github.com/nislab/gensync
   **Bears on:** an open-source testbed for set-reconciliation *families* with a cgroup-based
   latency/bandwidth/loss lane, reporting no universally dominant protocol; **carries no RBSR**, so a
   harness claim here scopes to refinement policies inside RBSR, and its injection lane is the prior
-  art #280 weighed before building its own. → [#280](https://github.com/Akvize/reconcile-rs/issues/280), [#174](https://github.com/Akvize/reconcile-rs/issues/174).
+  art #280 weighed before building its own. → [#280](https://github.com/adriendellagaspera/reconcile-rs/issues/280), [#174](https://github.com/adriendellagaspera/reconcile-rs/issues/174).
 - **J. Capetanakis**, *Tree algorithms for packet broadcast channels*, `doi:10.1109/TCOM.1979.1094661`
   (IEEE Trans. Commun. 25(5), 1979) · **P. Mathys, P. Flajolet**, *Q-ary collision resolution
   algorithms in random-access systems with free or blocked channel access*,
@@ -389,7 +389,7 @@ arXiv:2509.02373 and arXiv:2603.19820 are primary sources; other entries are sum
   remain throughout, near where this repo's measured `b`/ln `b` optimum also lands, so the split
   *distribution* is never optimised. Different objective (channel
   throughput), so a convergence to investigate, not a transferable bound.
-  → [#257](https://github.com/Akvize/reconcile-rs/issues/257).
+  → [#257](https://github.com/adriendellagaspera/reconcile-rs/issues/257).
 - **Q. Vogel, Y. Deshpande, Č. Stefanović, W. Kellerer**, *Analysis of d-ary tree algorithms with
   successive interference cancellation*, `doi:10.1017/jpr.2023.107` (J. Applied Prob. 61(3), 2024;
   preprint `arXiv:2302.08145`) — https://arxiv.org/abs/2302.08145
@@ -400,7 +400,7 @@ arXiv:2509.02373 and arXiv:2603.19820 are primary sources; other entries are sum
 - **A. J. E. M. Janssen, M. J. de Jong**, *Analysis of contention tree algorithms*,
   `doi:10.1109/18.868486` (IEEE Trans. Inf. Theory 46(6), 2000)
   **Bears on:** levels-to-resolution statistics for arbitrary node degree — the analytical form of
-  the round-count column `benches/protocol.rs` reports empirically. → [#257](https://github.com/Akvize/reconcile-rs/issues/257)
+  the round-count column `benches/protocol.rs` reports empirically. → [#257](https://github.com/adriendellagaspera/reconcile-rs/issues/257)
 - **Y. Minsky, A. Trachtenberg, R. Zippel**, *Set reconciliation with nearly optimal communication
   complexity*, `doi:10.1109/TIT.2003.815784` (IEEE Trans. Inf. Theory 49(9), 2003)
   **Bears on:** CPI, the primitive PSR partitions down to; the `≈ b·d` communication optimum is the comparison with minisketch. Mechanized: the AFP entry *A Set Reconciliation Algorithm* (Hofmeier &
@@ -424,7 +424,7 @@ arXiv:2509.02373 and arXiv:2603.19820 are primary sources; other entries are sum
   **Bears on:** LSH over IBLTs makes the cost scale with a distance between the sets' *elements*
   instead of a count of differing ones. Every column in this workspace counts differing `(key, value)`
   pairs, so an LWW update to an existing key — the divergence a KV store actually accumulates, and
-  where the count signal reads zero ([#12](https://github.com/adriendellagaspera/rbsr-research/issues/12)) — is priced as a full difference. A
+  where the count signal reads zero (`experiments/harness/src/policy.rs` count-delta probe) — is priced as a full difference. A
   `lift`-then-add summary is deliberately distance-destroying, so this is the argument that a different summary prices a different workload, not an adaptation of this one.
   → [§1.3](#13-the-design-space-rbsr-variants-over-an-rsos-and-alternatives-to-the-rsos), [#44](https://github.com/adriendellagaspera/set-reconciliation/issues/44)
 - **M. Mitzenmacher, R. Pagh**, *Simple multi-party set reconciliation*,
@@ -432,7 +432,7 @@ arXiv:2509.02373 and arXiv:2603.19820 are primary sources; other entries are sum
   https://arxiv.org/abs/1311.2037
   **Bears on:** the only entry here that is not two-party. Every cost model on this page is stated
   for one pair while `ReplicatedMap` runs an N-node cluster at O(N) write amplification — the
-  fleet-level benchmark evidence the research questions need to explain. → [#174](https://github.com/Akvize/reconcile-rs/issues/174), [#354](https://github.com/Akvize/reconcile-rs/issues/354)
+  fleet-level benchmark evidence the research questions need to explain. → [#174](https://github.com/adriendellagaspera/reconcile-rs/issues/174), [#354](https://github.com/adriendellagaspera/reconcile-rs/issues/354)
 - **F. Lázaro, B. Matuz**, *A rate-compatible solution to the set reconciliation problem*,
   `arXiv:2211.05472v2` (IEEE Trans. Commun. 71(10), 2023 — v2 is the accepted revision) —
   https://arxiv.org/abs/2211.05472
@@ -516,7 +516,7 @@ arXiv:2509.02373 and arXiv:2603.19820 are primary sources; other entries are sum
   higher latency" ❌ against FingerprintTreeMap.
 
 **Aggregate-augmented and page-oriented trees** *(the structural ancestry of `FingerprintTreeMap`,
-surfaced by arXiv:2603.19820's related work — the project questions in issues #257/#271 remain active here)*
+surfaced by arXiv:2603.19820's related work — the project questions in [reconcile-rs#257](https://github.com/adriendellagaspera/reconcile-rs/issues/257) / [reconcile-rs#271](https://github.com/adriendellagaspera/reconcile-rs/issues/271) remain active here)*
 - S. Tatham, *Counted B-Trees* (2004) — https://www.chiark.greenend.org.uk/~sgtatham/algorithms/cbtree.html
   — the subtree-count augmentation giving O(log n) rank/select. Direct prior art for `tree_size`:
   the order-statistic half of RSOS is a documented classic, not a 2026 result.
@@ -533,7 +533,7 @@ surfaced by arXiv:2603.19820's related work — the project questions in issues 
   chain nodes; the root's entry is deliberately not removed on the hot path — that detail is in the
   code alone (`_abt_install_version_chain`'s comment; vacuum collects it when the tree quiesces),
   not in the paper (paper and code checked).
-  [#359](https://github.com/Akvize/reconcile-rs/issues/359).
+  [#359](https://github.com/adriendellagaspera/reconcile-rs/issues/359).
 - F. Li, M. Hadjieleftheriou, G. Kollios, L. Reyzin, *Dynamic authenticated index structures for
   outsourced databases* (Embedded Merkle B-tree), SIGMOD 2006 — twenty years of prior art on
   caching digests inside a B-tree. Different goal (verifiable query answering, not range
@@ -541,14 +541,14 @@ surfaced by arXiv:2603.19820's related work — the project questions in issues 
   ever become a requirement.
 - S. Roura, *A new method for balancing binary search trees*, ICALP 2001 — balancing by subtree
   weight; background for the untuned interaction between the tree order (6) and the protocol
-  fan-out ([#257](https://github.com/Akvize/reconcile-rs/issues/257)).
+  fan-out ([#257](https://github.com/adriendellagaspera/reconcile-rs/issues/257)).
 - H. Chu et al., *LMDB* — https://github.com/LMDB — a copy-on-write, memory-mapped B+-tree with
   lock-free MVCC readers and a single writer. Named here because that *is* the property epic
   [#36](https://github.com/adriendellagaspera/reconcile-rs/issues/36) sets out to build in safe Rust: the
   build-vs-adopt comparison should be made against it explicitly rather than by default.
 
 **Range selection and orthogonal range searching (`cs.DS` / `cs.CG`)** *(a third dialect, opened
-for [#360](https://github.com/Akvize/reconcile-rs/issues/360): the operation a `δ > 1` RSOS
+for [#360](https://github.com/adriendellagaspera/reconcile-rs/issues/360): the operation a `δ > 1` RSOS
 needs beyond Def. 3.9 is this literature's central object, and its bounds are settled. **`δ` is the
 dimension throughout this group and [`ARCHITECTURE.md`](https://github.com/adriendellagaspera/reconcile-rs/blob/main/ARCHITECTURE.md) §7, not [§3.1](#31-cross-community-vocabulary)'s
 PSR difference size** — the one symbol the three dialects genuinely collide on. Umbrella survey:
@@ -560,15 +560,15 @@ https://users.cs.duke.edu/~pankaj/publications/surveys/rs3ed.pdf . Sourced from 
   https://arxiv.org/abs/1106.5076
   **Bears on:** its problem statement *is* the missing operation — the `k`-th smallest `y` among the
   points whose `x` lies in a query range — at `O((lg n/lg lg n)²)` query and amortized update in
-  **linear** space. The primitive #360 expected to be the blocker is the affordable half.
-  → [#360](https://github.com/Akvize/reconcile-rs/issues/360), [`ARCHITECTURE.md`](https://github.com/adriendellagaspera/reconcile-rs/blob/main/ARCHITECTURE.md) §7
+  **linear** space. The primitive [reconcile-rs#360](https://github.com/adriendellagaspera/reconcile-rs/issues/360) expected to be the blocker is the affordable half.
+  → [#360](https://github.com/adriendellagaspera/reconcile-rs/issues/360), [`ARCHITECTURE.md`](https://github.com/adriendellagaspera/reconcile-rs/blob/main/ARCHITECTURE.md) §7
 - **A. G. Jørgensen, K. G. Larsen**, *Range selection and median: tight cell probe lower bounds and
   adaptive data structures*, `doi:10.1137/1.9781611973082.63` (SODA 2011, pp. 805–813) —
   https://cs.au.dk/~larsen/papers/range_median.pdf
   **Bears on:** `Ω(lg n/lg lg n)` for *static* range selection in `n·lg^O(1) n` bits, matched by
   Brodal & Jørgensen (ISAAC 2009, https://users-cs.au.dk/gerth/papers/isaac09median.pdf) — so the
   primitive's price is **tight**, not merely unimproved.
-  → [#360](https://github.com/Akvize/reconcile-rs/issues/360)
+  → [#360](https://github.com/adriendellagaspera/reconcile-rs/issues/360)
 - **K. G. Larsen**, *The cell probe complexity of dynamic range counting*, `arXiv:1105.5933` ·
   `doi:10.1145/2213977.2213987` (STOC 2012, pp. 85–94) — https://arxiv.org/abs/1105.5933 ;
   strengthening **M. Pătraşcu**, *Lower bounds for 2-dimensional range counting*,
@@ -577,7 +577,7 @@ https://users.cs.duke.edu/~pankaj/publications/surveys/rs3ed.pdf . Sourced from 
   `Ω((lg n/lg lg n)²)` at cell size `w = Θ(lg n)` under any polylog update, for **weighted** 2D range
   counting — and `Aggregate` carries a 256-bit `Fingerprint`. It therefore binds the operation Def. 3.9
   **already has**, which is why `δ > 1` is priced by the dimension and not by the new primitive.
-  → [#360](https://github.com/Akvize/reconcile-rs/issues/360).
+  → [#360](https://github.com/adriendellagaspera/reconcile-rs/issues/360).
 - **O. Weinstein, H. Yu**, *Amortized dynamic cell-probe lower bounds from four-party communication*,
   `arXiv:1604.03030v1` (FOCS 2016) — https://arxiv.org/abs/1604.03030
   **Bears on:** closes the escape hatch the row above leaves open. Larsen's `t_u` is **worst case**, so an
@@ -585,7 +585,7 @@ https://users.cs.duke.edu/~pankaj/publications/surveys/rs3ed.pdf . Sourced from 
   the same `Ω((lg n/lg lg n)²)` **amortized and randomized**, for dynamic weighted 2-D orthogonal range
   counting (weights in `[n]`, `w = Θ(lg n)`). The `δ = 1` baseline two rows down already allows
   amortization, so the two ends of §7's comparison are now quantified alike. See the primary sources listed in this bibliography entry.
-  → [#360](https://github.com/Akvize/reconcile-rs/issues/360), [`ARCHITECTURE.md`](https://github.com/adriendellagaspera/reconcile-rs/blob/main/ARCHITECTURE.md) §7
+  → [#360](https://github.com/adriendellagaspera/reconcile-rs/issues/360), [`ARCHITECTURE.md`](https://github.com/adriendellagaspera/reconcile-rs/blob/main/ARCHITECTURE.md) §7
 - **T. M. Chan, B. T. Wilkinson**, *Adaptive and Approximate Orthogonal Range Counting*,
   SODA 2013 — http://tmc.web.engr.illinois.edu/orcount_soda.pdf (the September 2012 preprint, the
   document read for this page; its "last year's SODA" designates [JL11] = SODA 2011)
@@ -593,14 +593,14 @@ https://users.cs.duke.edu/~pankaj/publications/surveys/rs3ed.pdf . Sourced from 
   [JL11]'s lower bound, and states that range selection is closely related to 2-D 3-sided
   orthogonal range counting. Its static linear-space `O(lg_w n)` box counting motivates #360's
   open question about per-session snapshots.
-  → [#360](https://github.com/Akvize/reconcile-rs/issues/360)
+  → [#360](https://github.com/adriendellagaspera/reconcile-rs/issues/360)
 - **M. Pătraşcu, E. D. Demaine**, *Tight bounds for the partial-sums problem*,
   `doi:10.5555/982792.982796` (SODA 2004; journal version *Logarithmic lower bounds in the cell-probe
   model*, SIAM J. Comput. 35(4), 2006, pp. 932–963)
   **Bears on:** the one-dimensional baseline the row above is measured against — dynamic partial sums cost
   `Θ(1 + lg n/lg(w/s))` for cell size `w` and summary width `s`, hence `Θ(lg n)` once the summary is a
   word wide. `FingerprintTreeMap`'s `O(lg n)` aggregate is **optimal**, not merely adequate, so the
-  `δ > 1` comparison is tight on both sides. → [#360](https://github.com/Akvize/reconcile-rs/issues/360).
+  `δ > 1` comparison is tight on both sides. → [#360](https://github.com/adriendellagaspera/reconcile-rs/issues/360).
 
 **Consistency & conflict resolution**
 - Kingsbury (Jepsen), *The trouble with timestamps* — https://aphyr.com/posts/299-the-trouble-with-timestamps ; *Jepsen: Cassandra* — https://aphyr.com/posts/294-jepsen-cassandra
@@ -613,7 +613,7 @@ https://users.cs.duke.edu/~pankaj/publications/surveys/rs3ed.pdf . Sourced from 
   keyed by a PRF whose key is **secret to the verifier** (bound `u²/2^m + (d/n)^l`); with the key
   known and the nonce fixed, security degrades to exactly the weighted-knapsack problem Wagner's
   k-tree attacks — so a cluster-shared key protects against outsiders only, never key holders.
-  → [#19](https://github.com/adriendellagaspera/reconcile-rs/issues/19), [#471](https://github.com/Akvize/reconcile-rs/issues/471)
+  → [#19](https://github.com/adriendellagaspera/reconcile-rs/issues/19), [#471](https://github.com/adriendellagaspera/reconcile-rs/issues/471)
 - **M. Bellare, D. Micciancio**, *A New Paradigm for Collision-free Hashing: Incrementality at
   Reduced Cost*, EUROCRYPT 1997 — https://cseweb.ucsd.edu/~mihir/papers.html
   **Bears on** *(no arXiv/doi pinnable offline — supplied-PDF read; pin when next touched, §3.2)*:
