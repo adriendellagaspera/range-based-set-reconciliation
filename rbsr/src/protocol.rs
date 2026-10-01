@@ -201,12 +201,15 @@ where
                 // IDLIST is one-directional: a non-empty peer range is bounced back advertised as
                 // empty so the peer enumerates its side too.
                 outcome.enumerated += 1;
-                if remote.size() != 0 {
-                    child_ranges.push(RangeAggregate {
-                        range: KeyRange::new(start_bound.clone(), end_bound.clone()),
-                        aggregate: Aggregate::ZERO,
-                    });
-                    outcome.children += 1;
+                match remote.size() {
+                    0 => {}
+                    _ => {
+                        child_ranges.push(RangeAggregate {
+                            range: KeyRange::new(start_bound.clone(), end_bound.clone()),
+                            aggregate: Aggregate::ZERO,
+                        });
+                        outcome.children += 1;
+                    }
                 }
                 enumeration_ranges.push((start_bound.into(), end_bound.into()));
             }
