@@ -1,4 +1,4 @@
-name: mutation rsos full baseline
+name: mutation rsos internal query
 
 on:
   pull_request:
@@ -9,50 +9,29 @@ permissions:
 env:
   CARGO_TERM_COLOR: never
   CARGO_PROFILE_TEST_DEBUG: "0"
+  RUSTFLAGS: --cfg rbsr_internal_testing
 
 jobs:
-  rsos:
-    name: rsos shard ${{ matrix.shard }}/8
+  query:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    strategy:
-      fail-fast: false
-      matrix:
-        shard: [0, 1, 2, 3, 4, 5, 6, 7]
-
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-        with:
-          key: mutation-rsos-full-${{ matrix.shard }}
-
       - name: Install cargo-mutants
         uses: taiki-e/install-action@v2
         with:
           tool: cargo-mutants@27.1.0
-
-      - name: Run stable RSOS shard
-        env:
-          SHARD: ${{ matrix.shard }}
+      - name: Run query mutations with internal counters enabled
         run: |
           set -euo pipefail
           cargo mutants -p rsos \
-            --exclude 'rsos/src/counters.rs' \
+            --file 'rsos/src/fingerprint_tree_map/query.rs' \
             --test-workspace=true \
-            --shard "${SHARD}/8" \
             --jobs 2 \
             --no-shuffle \
             --caught \
             --unviable
-
       - name: Print outcome
         if: always()
         run: test ! -f mutants.out/outcomes.json || cat mutants.out/outcomes.json
-
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: mutation-rsos-shard-${{ matrix.shard }}
-          path: mutants.out
-          if-no-files-found: ignore
