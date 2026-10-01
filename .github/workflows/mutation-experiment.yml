@@ -1,4 +1,4 @@
-name: mutation filter experiment
+name: mutation determinism experiment
 
 on:
   pull_request:
@@ -11,35 +11,32 @@ env:
 
 jobs:
   inventory:
-    name: inventory filters
+    name: inventory repeat ${{ matrix.repeat }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        repeat: [1, 2, 3]
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.99.0
       - uses: taiki-e/install-action@v2
         with:
           tool: cargo-mutants@27.1.0
-      - name: Compare mutant inventories
+      - name: Inventory
         run: |
           set -euo pipefail
-          cargo mutants -p rsos \
-            --exclude 'rsos/src/counters.rs' \
-            --list > base.txt
+          rustc -Vv
+          cargo -V
+          cargo mutants --version
+          cargo generate-lockfile
+          sha256sum Cargo.lock
 
           cargo mutants -p rsos \
             --exclude 'rsos/src/counters.rs' \
-            --exclude 'rsos/src/**/tests.rs' \
-            --exclude 'rsos/src/**/tests/*.rs' \
-            --list > explicit-test-excludes.txt
+            --list > mutants.txt
 
-          echo "base=$(wc -l < base.txt)"
-          echo "explicit_test_excludes=$(wc -l < explicit-test-excludes.txt)"
-
-          echo '--- added by explicit test exclusions ---'
-          comm -13 <(sort base.txt) <(sort explicit-test-excludes.txt) | tee added.txt
-          echo "added=$(wc -l < added.txt)"
-
-          echo '--- removed by explicit test exclusions ---'
-          comm -23 <(sort base.txt) <(sort explicit-test-excludes.txt) | tee removed.txt
-          echo "removed=$(wc -l < removed.txt)"
+          echo "mutants=$(wc -l < mutants.txt)"
+          echo "node_mutants=$(grep -c '^rsos/src/fingerprint_tree_map/node.rs:' mutants.txt || true)"
+          sha256sum mutants.txt
