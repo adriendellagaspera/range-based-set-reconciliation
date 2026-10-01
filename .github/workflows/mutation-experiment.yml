@@ -1,0 +1,81 @@
+name: mutation baseline
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: never
+
+jobs:
+  baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install cargo-mutants
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-mutants@27.1.0
+
+      - name: Record versions
+        run: |
+          set -euo pipefail
+          rustc -Vv
+          cargo -V
+          cargo mutants --version
+
+      - name: Count workspace mutants
+        run: |
+          set -euo pipefail
+          cargo mutants --workspace --list | tee mutants-workspace.txt
+          echo "workspace_mutants=$(wc -l < mutants-workspace.txt)"
+
+      - name: Count rsos mutants
+        run: |
+          set -euo pipefail
+          cargo mutants -p rsos --list | tee mutants-rsos.txt
+          echo "rsos_mutants=$(wc -l < mutants-rsos.txt)"
+
+      - name: Count rbsr mutants
+        run: |
+          set -euo pipefail
+          cargo mutants -p rbsr --list | tee mutants-rbsr.txt
+          echo "rbsr_mutants=$(wc -l < mutants-rbsr.txt)"
+
+      - name: Run workspace mutations serially
+        run: |
+          set -euo pipefail
+          cargo mutants \
+            --workspace \
+            --jobs 1 \
+            --no-shuffle \
+            --caught \
+            --unviable
+
+      - name: Print machine-readable outcome
+        if: always()
+        run: |
+          if test -f mutants.out/outcomes.json; then
+            cat mutants.out/outcomes.json
+          fi
+
+      - name: Archive mutation output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutation-baseline
+          path: |
+            mutants.out
+            mutants-workspace.txt
+            mutants-rsos.txt
+            mutants-rbsr.txt
+          if-no-files-found: ignore
