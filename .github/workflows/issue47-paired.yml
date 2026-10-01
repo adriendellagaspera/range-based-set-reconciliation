@@ -157,6 +157,52 @@ jobs:
               black_box(&large);
           }
           RS
+            cat > "$variant/rsos/examples/issue47_cow.rs" <<'RS'
+          use rsos::FingerprintTreeMap;
+          use std::hint::black_box;
+          use std::time::Instant;
+
+          const N: u32 = 100_000;
+          const CHANGED: u32 = 1_000;
+
+          fn key(i: u32) -> u32 {
+              i.wrapping_mul(7_919).wrapping_add(104_729) % N
+          }
+
+          fn rss_kib() -> usize {
+              std::fs::read_to_string("/proc/self/status")
+                  .expect("/proc/self/status")
+                  .lines()
+                  .find_map(|line| {
+                      line.strip_prefix("VmRSS:")
+                          .and_then(|rest| rest.split_whitespace().next())
+                          .and_then(|value| value.parse().ok())
+                  })
+                  .expect("VmRSS")
+          }
+
+          fn main() {
+              let mut tree: FingerprintTreeMap<u32, u32> =
+                  (0..N).map(|k| (k, k)).collect();
+              let pinned = tree.clone();
+              black_box(pinned.aggregate(..));
+              let before = rss_kib();
+              let start = Instant::now();
+              for i in 0..CHANGED {
+                  let k = key(i);
+                  black_box(tree.insert(k, k ^ 1));
+              }
+              let elapsed = start.elapsed().as_nanos();
+              let after = rss_kib();
+              println!(
+                  "[issue47_cow] n={N} changed={CHANGED} delta_kib={} ns_per_change={:.2}",
+                  after.saturating_sub(before),
+                  elapsed as f64 / CHANGED as f64
+              );
+              black_box(&pinned);
+              black_box(&tree);
+          }
+          RS
           done
 
       - name: Run paired structural and operation probes
@@ -173,6 +219,7 @@ jobs:
             (
               cd "$variant"
               cargo run --release -p rsos --example issue47_probe
+              cargo run --release -p rsos --example issue47_cow
             )
           done
 
