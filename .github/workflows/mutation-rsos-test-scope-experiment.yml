@@ -1,0 +1,55 @@
+name: mutation rsos test-scope experiment
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: never
+
+jobs:
+  mutants:
+    name: rsos shard 0/4 (${{ matrix.scope }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        scope: [package, workspace]
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install cargo-mutants
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-mutants@27.1.0
+
+      - name: Count shard mutants
+        run: |
+          set -euo pipefail
+          cargo mutants -p rsos --shard 0/4 --list | tee mutants.txt
+          echo "mutant_count=$(wc -l < mutants.txt)"
+
+      - name: Run mutations
+        env:
+          SCOPE: ${{ matrix.scope }}
+        run: |
+          set -euo pipefail
+          extra=()
+          if test "${SCOPE}" = "workspace"; then
+            extra+=(--test-workspace=true)
+          fi
+          cargo mutants -p rsos \
+            --shard 0/4 \
+            --jobs 1 \
+            --no-shuffle \
+            --caught \
+            --unviable \
+            "${extra[@]}"
+
+      - name: Print machine-readable outcome
+        if: always()
+        run: test ! -f mutants.out/outcomes.json || cat mutants.out/outcomes.json
