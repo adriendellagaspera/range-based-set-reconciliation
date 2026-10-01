@@ -128,7 +128,6 @@ impl<K: Serialize + Ord + Clone, V: Serialize + Clone> Rsos<K> for FingerprintTr
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::{FingerprintTreeMap, Rsos};
