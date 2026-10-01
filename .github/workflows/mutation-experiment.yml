@@ -1,4 +1,4 @@
-name: mutation concurrency experiment
+name: mutation concurrency repeat
 
 on:
   pull_request:
@@ -11,35 +11,26 @@ env:
 
 jobs:
   rsos:
-    name: rsos shard 0/32 (jobs=${{ matrix.local_jobs }})
+    name: rsos 0/32 (jobs=${{ matrix.local_jobs }}, repeat=${{ matrix.repeat }})
     runs-on: ubuntu-latest
     timeout-minutes: 12
     strategy:
       fail-fast: false
       matrix:
-        local_jobs: [1, 2, 3]
+        local_jobs: [2, 3]
+        repeat: [1, 2]
 
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
-          key: mutation-concurrency-${{ matrix.local_jobs }}
+          key: mutation-concurrency-repeat-${{ matrix.local_jobs }}-${{ matrix.repeat }}
 
       - name: Install cargo-mutants
         uses: taiki-e/install-action@v2
         with:
           tool: cargo-mutants@27.1.0
-
-      - name: Count shard mutants
-        run: |
-          set -euo pipefail
-          cargo mutants -p rsos \
-            --exclude 'rsos/src/counters.rs' \
-            --shard 0/32 \
-            --list > mutants.txt
-          echo "mutant_count=$(wc -l < mutants.txt)"
-          sha256sum mutants.txt
 
       - name: Run mutations
         env:
@@ -53,12 +44,3 @@ jobs:
             --no-shuffle \
             --caught \
             --unviable
-
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: rsos-concurrency-${{ matrix.local_jobs }}
-          path: |
-            mutants.txt
-            mutants.out
-          if-no-files-found: ignore
