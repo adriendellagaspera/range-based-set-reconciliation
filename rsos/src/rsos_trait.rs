@@ -127,3 +127,19 @@ impl<K: Serialize + Ord + Clone, V: Serialize + Clone> Rsos<K> for FingerprintTr
         self.remove(key)
     }
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::{FingerprintTreeMap, Rsos};
+
+    #[test]
+    fn trait_insert_and_delete_preserve_previous_and_removed_values() {
+        let mut map = FingerprintTreeMap::new();
+
+        assert_eq!(Rsos::insert(&mut map, 7, "first"), None);
+        assert_eq!(Rsos::insert(&mut map, 7, "second"), Some("first"));
+        assert_eq!(Rsos::delete(&mut map, &7), Some("second"));
+        assert_eq!(Rsos::delete(&mut map, &7), None);
+    }
+}
