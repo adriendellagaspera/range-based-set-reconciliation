@@ -1,4 +1,4 @@
-name: mutation profile cross-shard
+name: mutation rbsr full baseline
 
 on:
   pull_request:
@@ -8,41 +8,41 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: never
+  CARGO_PROFILE_TEST_DEBUG: "0"
 
 jobs:
-  rsos:
-    name: rsos 17/32 (${{ matrix.variant }})
+  rbsr:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
-    strategy:
-      fail-fast: false
-      matrix:
-        variant: [default, no-debug]
+    timeout-minutes: 15
 
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
-          key: mutation-profile-cross-${{ matrix.variant }}
+          key: mutation-rbsr-full
 
       - name: Install cargo-mutants
         uses: taiki-e/install-action@v2
         with:
           tool: cargo-mutants@27.1.0
 
-      - name: Run mutations
-        env:
-          VARIANT: ${{ matrix.variant }}
+      - name: Run stable RBSR mutations
         run: |
           set -euo pipefail
-          if test "${VARIANT}" = "no-debug"; then
-            export CARGO_PROFILE_TEST_DEBUG=0
-          fi
-          cargo mutants -p rsos \
-            --exclude 'rsos/src/counters.rs' \
-            --shard 17/32 \
+          cargo mutants -p rbsr \
+            --exclude 'rbsr/src/probe_harness.rs' \
+            --exclude 'rbsr/src/policy/constant_stride_split.rs' \
+            --exclude 'rbsr/src/policy/span_hashed_stride_split.rs' \
+            --exclude-re 'local_for_testing|remote_for_testing' \
             --jobs 2 \
             --no-shuffle \
             --caught \
             --unviable
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mutation-rbsr-full
+          path: mutants.out
+          if-no-files-found: ignore
