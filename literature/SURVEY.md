@@ -524,16 +524,19 @@ surfaced by arXiv:2603.19820's related work — the project questions in [reconc
   `doi:10.14778/3538598.3538606` (VLDB 15(9), 2022) — https://vldb.org/pvldb/vol15/p1835-zhao.pdf ;
   code (primary source read for this entry — `vldb.org` was egress-blocked) via
   https://github.com/zzy7896321/abtree_public.
-  **Bears on:** the mechanism is not root-path locking — writers update the in-page aggregate in
-  place with atomic Fetch-And-Add (weight updates commute, §3.1) *and* prepend immutable delta
-  records (tagged by inserting xmin) to a lock-free per-child-page version chain, which snapshot
-  readers use to **subtract invisible deltas** from the in-place value (§4.4); stored weights are
-  deliberately inexact upper bounds corrected by rejection sampling (Def. 1) — AB-tree buys
-  concurrency by relaxing the exactness a sound SKIP cannot relax. An epoch-based GC reclaims dead
-  chain nodes; the root's entry is deliberately not removed on the hot path — that detail is in the
-  code alone (`_abt_install_version_chain`'s comment; vacuum collects it when the tree quiesces),
-  not in the paper (paper and code checked).
-  [#359](https://github.com/adriendellagaspera/reconcile-rs/issues/359).
+  **Bears on:** three mechanisms must be kept separate. Writers update in-page weights with atomic
+  Fetch-And-Add because the weight updates commute (§3.1); that concurrency mechanism does **not**
+  require approximate weights. For snapshot-consistent reads, writers also prepend immutable delta
+  records (tagged by inserting xmin) to a lock-free per-child-page version chain, and readers
+  subtract deltas invisible to their snapshot (§4.4); this mechanism restores an exact snapshot
+  view rather than relaxing it. Separately, AB-tree's random-sampling problem permits stored weights
+  to be inexact upper bounds corrected by rejection sampling (Def. 1). The first two mechanisms are
+  therefore relevant evidence for exact concurrent aggregate maintenance, while the third is
+  sampling-specific and cannot be transferred to a sound RBSR SKIP. The unresolved obstruction here
+  is implementation width/atomicity: AB-tree's scalar atomic update does not establish that a
+  256-bit fingerprint plus count can be updated or read atomically without serialization.
+  → [#47](https://github.com/adriendellagaspera/set-reconciliation/issues/47),
+  [reconcile-rs#359](https://github.com/adriendellagaspera/reconcile-rs/issues/359).
 - F. Li, M. Hadjieleftheriou, G. Kollios, L. Reyzin, *Dynamic authenticated index structures for
   outsourced databases* (Embedded Merkle B-tree), SIGMOD 2006 — twenty years of prior art on
   caching digests inside a B-tree. Different goal (verifiable query answering, not range
