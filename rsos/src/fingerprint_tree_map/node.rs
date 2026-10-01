@@ -103,6 +103,7 @@ impl<K, V> Node<K, V> {
         self.fingerprints[index]
     }
 
+    #[cfg(test)]
     pub(super) fn fingerprint_capacity(&self) -> usize {
         self.fingerprints.capacity()
     }
