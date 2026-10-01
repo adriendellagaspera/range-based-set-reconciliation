@@ -17,6 +17,30 @@ use crate::aggregate::Aggregate;
 use super::node::Node;
 use super::{element, FingerprintTreeMap};
 
+fn range_covers_lower_separator<K: Ord>(
+    start: Bound<&K>,
+    lower_bound: Option<&K>,
+) -> bool {
+    match start {
+        Bound::Unbounded => true,
+        Bound::Included(key) | Bound::Excluded(key) => {
+            lower_bound.is_some_and(|lower_bound| key <= lower_bound)
+        }
+    }
+}
+
+fn range_covers_upper_separator<K: Ord>(
+    end: Bound<&K>,
+    upper_bound: Option<&K>,
+) -> bool {
+    match end {
+        Bound::Unbounded => true,
+        Bound::Included(key) | Bound::Excluded(key) => {
+            upper_bound.is_some_and(|upper_bound| key >= upper_bound)
+        }
+    }
+}
+
 impl<K: Ord, V> FingerprintTreeMap<K, V> {
     /// Bundled [`Aggregate`] over a range of keys in one `O(log n)` tree walk;
     /// [`Rsos::aggregate`](crate::Rsos::aggregate)'s realization.
@@ -30,26 +54,10 @@ impl<K: Ord, V> FingerprintTreeMap<K, V> {
             upper_bound: Option<&K>,
         ) -> Aggregate {
             crate::counters::record_aggregate_node_visit();
-            let lower_bound_included = match range.start_bound() {
-                Bound::Unbounded => true,
-                Bound::Included(key) | Bound::Excluded(key) => {
-                    if let Some(lower_bound) = lower_bound {
-                        key < lower_bound
-                    } else {
-                        false
-                    }
-                }
-            };
-            let upper_bound_included = match range.end_bound() {
-                Bound::Unbounded => true,
-                Bound::Included(key) | Bound::Excluded(key) => {
-                    if let Some(upper_bound) = upper_bound {
-                        key > upper_bound
-                    } else {
-                        false
-                    }
-                }
-            };
+            let lower_bound_included =
+                range_covers_lower_separator(range.start_bound(), lower_bound);
+            let upper_bound_included =
+                range_covers_upper_separator(range.end_bound(), upper_bound);
             // Both bounds inside the range: the cached subtree aggregate is the answer.
             if lower_bound_included && upper_bound_included {
                 crate::counters::record_aggregate_early_exit();
@@ -172,5 +180,64 @@ impl<K: Ord, V> FingerprintTreeMap<K, V> {
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.len() == 0
+    }
+}
+
+
+#[cfg(test)]
+mod separator_coverage_tests {
+    use super::{range_covers_lower_separator, range_covers_upper_separator};
+    use std::ops::Bound;
+
+    #[test]
+    fn lower_separator_coverage_is_inclusive_and_directional() {
+        let separator = 10;
+
+        assert!(range_covers_lower_separator::<i32>(
+            Bound::Unbounded,
+            Some(&separator)
+        ));
+        assert!(range_covers_lower_separator(
+            Bound::Included(&5),
+            Some(&separator)
+        ));
+        assert!(range_covers_lower_separator(
+            Bound::Excluded(&10),
+            Some(&separator)
+        ));
+        assert!(!range_covers_lower_separator(
+            Bound::Included(&11),
+            Some(&separator)
+        ));
+        assert!(!range_covers_lower_separator(
+            Bound::Included(&5),
+            None
+        ));
+    }
+
+    #[test]
+    fn upper_separator_coverage_is_inclusive_and_directional() {
+        let separator = 10;
+
+        assert!(range_covers_upper_separator::<i32>(
+            Bound::Unbounded,
+            Some(&separator)
+        ));
+        assert!(range_covers_upper_separator(
+            Bound::Included(&15),
+            Some(&separator)
+        ));
+        assert!(range_covers_upper_separator(
+            Bound::Excluded(&10),
+            Some(&separator)
+        ));
+        assert!(!range_covers_upper_separator(
+            Bound::Included(&9),
+            Some(&separator)
+        ));
+        assert!(!range_covers_upper_separator(
+            Bound::Included(&15),
+            None
+        ));
     }
 }
