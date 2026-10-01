@@ -6,9 +6,36 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+use std::cell::Cell;
+use std::ops::RangeBounds;
+
 use crate::policy::SqrtFanOut;
 
 use super::*;
+
+struct CountingView {
+    inner: FingerprintTreeMap<i32, i32>,
+    aggregate_calls: Cell<usize>,
+}
+
+impl RsosView<i32> for CountingView {
+    fn size(&self) -> usize {
+        self.inner.len()
+    }
+
+    fn aggregate<R: RangeBounds<i32>>(&self, range: R) -> Aggregate {
+        self.aggregate_calls.set(self.aggregate_calls.get() + 1);
+        self.inner.aggregate(range)
+    }
+
+    fn rank(&self, key: &i32) -> usize {
+        self.inner.rank(key)
+    }
+
+    fn select(&self, rank: usize) -> &i32 {
+        self.inner.select(rank)
+    }
+}
 
 // ----- The fan-out rule: this crate's communication cost, pinned -----
 
@@ -53,4 +80,37 @@ fn sqrt_fan_out_is_still_the_square_root_of_the_range_size() {
             child_ranges.len()
         );
     }
+}
+
+#[test]
+fn one_child_split_reuses_the_parent_aggregate() {
+    let store = CountingView {
+        inner: tree(&[10]),
+        aggregate_calls: Cell::new(0),
+    };
+    let segment = RangeAggregate {
+        range: KeyRange::new(StartBound::Unbounded, EndBound::Unbounded),
+        // local span is one, remote span is two: the default policy asks the peer with more
+        // elements to refine and emits one child equal to the parent.
+        aggregate: Aggregate::new(2, Fingerprint([7, 0, 0, 0])),
+    };
+    let mut child_ranges = Vec::new();
+    let mut enumeration_ranges = Vec::new();
+
+    let outcome = protocol_round(
+        &store,
+        vec![segment],
+        &mut child_ranges,
+        &mut enumeration_ranges,
+        &mut rng(),
+    );
+
+    assert_eq!(outcome.split(), 1);
+    assert_eq!(child_ranges.len(), 1);
+    assert!(enumeration_ranges.is_empty());
+    assert_eq!(
+        store.aggregate_calls.get(),
+        1,
+        "an uncut child is the parent; its aggregate must be reused rather than recomputed"
+    );
 }
