@@ -1,4 +1,4 @@
-name: mutation baseline
+name: mutation test-selection experiment
 
 on:
   pull_request:
@@ -10,56 +10,73 @@ env:
   CARGO_TERM_COLOR: never
 
 jobs:
-  inventory:
-    name: inventory
+  rsos:
+    name: rsos shard 0/8 (${{ matrix.scope }})
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        scope: [package, workspace]
+
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: mutation-test-selection-${{ matrix.scope }}
+
       - name: Install cargo-mutants
         uses: taiki-e/install-action@v2
         with:
           tool: cargo-mutants@27.1.0
 
-      - name: Inventory stable and internal corpora
+      - name: Count shard mutants
         run: |
           set -euo pipefail
-          cargo mutants --version
-
           cargo mutants -p rsos \
             --exclude 'rsos/src/counters.rs' \
-            --list > rsos-stable.txt
+            --shard 0/8 \
+            --list > mutants.txt
+          echo "mutant_count=$(wc -l < mutants.txt)"
+          sha256sum mutants.txt
 
-          cargo mutants -p rbsr \
-            --exclude 'rbsr/src/probe_harness.rs' \
-            --exclude 'rbsr/src/policy/constant_stride_split.rs' \
-            --exclude 'rbsr/src/policy/span_hashed_stride_split.rs' \
-            --exclude-re 'local_for_testing|remote_for_testing' \
-            --list > rbsr-stable.txt
+      - name: Run mutations
+        env:
+          SCOPE: ${{ matrix.scope }}
+        run: |
+          set -euo pipefail
+          args=(
+            -p rsos
+            --exclude 'rsos/src/counters.rs'
+            --shard 0/8
+            --jobs 1
+            --no-shuffle
+            --caught
+            --unviable
+          )
+          if test "${SCOPE}" = workspace; then
+            args+=(--test-workspace=true)
+          fi
+          cargo mutants "${args[@]}"
 
-          RUSTFLAGS='--cfg rbsr_internal_testing' cargo mutants -p rsos \
-            --file 'rsos/src/counters.rs' \
-            --list > rsos-internal.txt
-
-          RUSTFLAGS='--cfg rbsr_internal_testing' cargo mutants -p rbsr \
-            --file 'rbsr/src/probe_harness.rs' \
-            --file 'rbsr/src/policy/constant_stride_split.rs' \
-            --file 'rbsr/src/policy/span_hashed_stride_split.rs' \
-            --examine-re 'local_for_testing|remote_for_testing|probe_harness|constant_stride_split|span_hashed_stride_split' \
-            --list > rbsr-internal.txt
-
-          for f in rsos-stable rbsr-stable rsos-internal rbsr-internal; do
-            printf '%s_mutants=%s\n' "$f" "$(wc -l < "$f.txt")"
-          done
-
-          cat rsos-stable.txt rbsr-stable.txt | sort > stable-workspace.txt
-          printf 'stable_workspace_mutants=%s\n' "$(wc -l < stable-workspace.txt)"
+      - name: Print summary
+        if: always()
+        run: |
+          test ! -f mutants.out/outcomes.json || python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path("mutants.out/outcomes.json")
+          if p.exists():
+              d = json.loads(p.read_text())
+              print(json.dumps(d.get("summary", d), sort_keys=True))
+          PY
 
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
-          name: mutation-inventory
+          name: rsos-selection-${{ matrix.scope }}
           path: |
-            *-stable.txt
-            *-internal.txt
-            stable-workspace.txt
+            mutants.txt
+            mutants.out
+          if-no-files-found: ignore
