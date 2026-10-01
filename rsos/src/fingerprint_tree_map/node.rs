@@ -25,7 +25,14 @@ pub(crate) type Children<K, V> = ArrayVec<Arc<Node<K, V>>, { MAX_CAPACITY + 1 }>
 pub(crate) struct Node<K, V> {
     pub(crate) keys: ArrayVec<K, MAX_CAPACITY>,
     pub(crate) values: ArrayVec<V, MAX_CAPACITY>,
-    pub(super) fingerprints: ArrayVec<Fingerprint, MAX_CAPACITY>,
+    // Fingerprints stay cached so range aggregation keeps its existing bounds and avoids
+    // re-serializing boundary entries. Unlike keys/values, however, their 32-byte slots are
+    // stored out of line: reserving MAX_CAPACITY slots inline costs every sparsely occupied node
+    // 352 bytes even though a non-root B-tree node normally holds only 5..=11 entries.
+    //
+    // The Arc matters for copy-on-write snapshots: cloning a Node while an older tree version is
+    // retained shares this buffer until that exact node's fingerprints are mutated.
+    pub(super) fingerprints: Arc<Vec<Fingerprint>>,
     /// `Arc`, not `Box`, for each *element*: every child is potentially shared with an older
     /// retained version of the tree. A mutating descent forks a child via [`Arc::make_mut`] only
     /// when it is actually shared (refcount > 1); an unshared child is mutated in place, no
@@ -51,7 +58,7 @@ impl<K, V> Node<K, V> {
         Node {
             keys: ArrayVec::new(),
             values: ArrayVec::new(),
-            fingerprints: ArrayVec::new(),
+            fingerprints: Arc::new(Vec::new()),
             children: None,
             subtree: Aggregate::ZERO,
         }
@@ -92,6 +99,68 @@ impl<K, V> Node<K, V> {
         self.subtree().size()
     }
 
+    pub(super) fn fingerprint(&self, index: usize) -> Fingerprint {
+        self.fingerprints[index]
+    }
+
+    pub(super) fn fingerprint_capacity(&self) -> usize {
+        self.fingerprints.capacity()
+    }
+
+    fn target_fingerprint_capacity(len: usize) -> usize {
+        if len <= MIN_CAPACITY {
+            MIN_CAPACITY
+        } else {
+            MAX_CAPACITY
+        }
+    }
+
+    fn fingerprints_mut_for_insert(&mut self) -> &mut Vec<Fingerprint> {
+        let next_len = self.fingerprints.len() + 1;
+        let target = Self::target_fingerprint_capacity(next_len);
+        let fingerprints = Arc::make_mut(&mut self.fingerprints);
+        if fingerprints.capacity() < target {
+            fingerprints.reserve_exact(target - fingerprints.capacity());
+        }
+        fingerprints
+    }
+
+    fn compact_fingerprints(&mut self) {
+        let target = Self::target_fingerprint_capacity(self.fingerprints.len());
+        let fingerprints = Arc::make_mut(&mut self.fingerprints);
+        if fingerprints.capacity() > target {
+            fingerprints.shrink_to(target);
+        }
+    }
+
+    pub(super) fn push_fingerprint(&mut self, fingerprint: Fingerprint) {
+        self.fingerprints_mut_for_insert().push(fingerprint);
+    }
+
+    pub(super) fn insert_fingerprint(&mut self, index: usize, fingerprint: Fingerprint) {
+        self.fingerprints_mut_for_insert()
+            .insert(index, fingerprint);
+    }
+
+    pub(super) fn pop_fingerprint(&mut self) -> Option<Fingerprint> {
+        Arc::make_mut(&mut self.fingerprints).pop()
+    }
+
+    pub(super) fn remove_fingerprint(&mut self, index: usize) -> Fingerprint {
+        Arc::make_mut(&mut self.fingerprints).remove(index)
+    }
+
+    pub(super) fn replace_fingerprint(
+        &mut self,
+        index: usize,
+        fingerprint: Fingerprint,
+    ) -> Fingerprint {
+        std::mem::replace(
+            &mut Arc::make_mut(&mut self.fingerprints)[index],
+            fingerprint,
+        )
+    }
+
     /// Recompute [`subtree`](Node::subtree) by composing own separators with each child's
     /// aggregate.
     pub(super) fn refresh_aggregate(&mut self) {
@@ -128,7 +197,9 @@ impl<K, V> Node<K, V> {
             let mut right_sibling = Node {
                 keys: ArrayVec::from_iter(self.keys.drain(mid + 1..)),
                 values: ArrayVec::from_iter(self.values.drain(mid + 1..)),
-                fingerprints: ArrayVec::from_iter(self.fingerprints.drain(mid + 1..)),
+                fingerprints: Arc::new(
+                    Arc::make_mut(&mut self.fingerprints).split_off(mid + 1),
+                ),
                 children: self
                     .children
                     .as_mut()
@@ -137,7 +208,7 @@ impl<K, V> Node<K, V> {
             };
             let mid_key = self.keys.pop().unwrap();
             let mid_value = self.values.pop().unwrap();
-            let mid_fp = self.fingerprints.pop().unwrap();
+            let mid_fp = self.pop_fingerprint().unwrap();
             let to_insert = if index <= mid {
                 self.insert(index, key, value, fingerprint, right_child, diff_fp)
             } else {
@@ -153,13 +224,15 @@ impl<K, V> Node<K, V> {
             assert!(to_insert.is_none());
             assert!(!self.keys.is_empty());
             assert!(!right_sibling.keys.is_empty());
+            self.compact_fingerprints();
+            right_sibling.compact_fingerprints();
             self.refresh_aggregate();
             right_sibling.refresh_aggregate();
             Some((mid_key, mid_value, mid_fp, Arc::new(right_sibling)))
         } else {
             self.keys.insert(index, key);
             self.values.insert(index, value);
-            self.fingerprints.insert(index, fingerprint);
+            self.insert_fingerprint(index, fingerprint);
             self.compose_into_subtree(Aggregate::new(1, diff_fp));
             if let Some(right_child) = right_child {
                 assert!(self.children.is_some());
@@ -193,13 +266,13 @@ impl<K, V> Node<K, V> {
             (
                 sibling.keys.pop().unwrap(),
                 sibling.values.pop().unwrap(),
-                sibling.fingerprints.pop().unwrap(),
+                sibling.pop_fingerprint().unwrap(),
             )
         } else {
             (
                 sibling.keys.remove(0),
                 sibling.values.remove(0),
-                sibling.fingerprints.remove(0),
+                sibling.remove_fingerprint(0),
             )
         };
         sibling.decompose_from_subtree(element(h));
@@ -219,17 +292,17 @@ impl<K, V> Node<K, V> {
         // exchange the sibling's separator with the parent's separator
         let k = std::mem::replace(&mut self.keys[sep_index], k);
         let v = std::mem::replace(&mut self.values[sep_index], v);
-        let h = std::mem::replace(&mut self.fingerprints[sep_index], h);
+        let h = self.replace_fingerprint(sep_index, h);
         // move the separator into the current (underflowing) node, at the end facing the sibling
         let current = Arc::make_mut(&mut self.children.as_mut().unwrap()[index]);
         if from_left {
             current.keys.insert(0, k);
             current.values.insert(0, v);
-            current.fingerprints.insert(0, h);
+            current.insert_fingerprint(0, h);
         } else {
             current.keys.push(k);
             current.values.push(v);
-            current.fingerprints.push(h);
+            current.push_fingerprint(h);
         }
         current.compose_into_subtree(element(h));
         // move the rotated child into the current node if any
@@ -275,10 +348,10 @@ impl<K, V> Node<K, V> {
             let current = Arc::make_mut(&mut children[merge_into]);
             let k = self.keys.remove(merge_into);
             let v = self.values.remove(merge_into);
-            let h = self.fingerprints.remove(merge_into);
+            let h = self.remove_fingerprint(merge_into);
             current.keys.push(k);
             current.values.push(v);
-            current.fingerprints.push(h);
+            current.push_fingerprint(h);
             current.compose_into_subtree(element(h));
             // Read before the moves below dismantle `right_sibling` field by field.
             let absorbed = right_sibling.subtree();
@@ -288,8 +361,8 @@ impl<K, V> Node<K, V> {
             for v in right_sibling.values {
                 current.values.push(v);
             }
-            for h in right_sibling.fingerprints {
-                current.fingerprints.push(h);
+            for &h in right_sibling.fingerprints.iter() {
+                current.push_fingerprint(h);
             }
             if let Some(child_children) = current.children.as_mut() {
                 for c in *right_sibling.children.unwrap() {
