@@ -16,31 +16,32 @@ use super::{FingerprintTreeMap, ItemRange};
 impl<'a, K: Ord, V, R: RangeBounds<K>> Iterator for ItemRange<'a, K, V, R> {
     type Item = (&'a K, &'a V);
     fn next(&mut self) -> Option<Self::Item> {
-        if let Some((node, children_passed)) = self.stack.pop() {
-            #[allow(clippy::collapsible_if)]
-            if 0 < children_passed && children_passed <= node.keys.len() {
-                if !self.range.contains(&node.keys[children_passed - 1]) {
-                    self.stack.clear();
-                    return None;
-                }
+        while let Some((node, children_passed)) = self.stack.pop() {
+            debug_assert!(children_passed <= node.keys.len());
+
+            if children_passed > 0 && !self.range.contains(&node.keys[children_passed - 1]) {
+                self.stack.clear();
+                return None;
             }
-            if children_passed <= node.keys.len() {
-                self.stack.push((node, children_passed + 1));
-                if let Some(children) = node.children.as_ref() {
-                    self.stack.push((&children[children_passed], 0));
-                }
+
+            if children_passed < node.keys.len() {
+                let next_children_passed = children_passed
+                    .checked_add(1)
+                    .expect("node key count cannot overflow usize");
+                self.stack.push((node, next_children_passed));
             }
-            if 0 < children_passed && children_passed <= node.keys.len() {
-                Some((
+            if let Some(children) = node.children.as_ref() {
+                self.stack.push((&children[children_passed], 0));
+            }
+
+            if children_passed > 0 {
+                return Some((
                     &node.keys[children_passed - 1],
                     &node.values[children_passed - 1],
-                ))
-            } else {
-                self.next()
+                ));
             }
-        } else {
-            None
         }
+        None
     }
 
     /// Exact: mirrors [`next`](Self::next)'s traversal on a cloned stack (references are `Copy`,
@@ -50,20 +51,26 @@ impl<'a, K: Ord, V, R: RangeBounds<K>> Iterator for ItemRange<'a, K, V, R> {
         let mut stack = self.stack.clone();
         let mut count = 0usize;
         while let Some((node, children_passed)) = stack.pop() {
-            #[allow(clippy::collapsible_if)]
-            if 0 < children_passed && children_passed <= node.keys.len() {
-                if !self.range.contains(&node.keys[children_passed - 1]) {
-                    break;
-                }
+            debug_assert!(children_passed <= node.keys.len());
+
+            if children_passed > 0 && !self.range.contains(&node.keys[children_passed - 1]) {
+                break;
             }
-            if children_passed <= node.keys.len() {
-                stack.push((node, children_passed + 1));
-                if let Some(children) = node.children.as_ref() {
-                    stack.push((&children[children_passed], 0));
-                }
+
+            if children_passed < node.keys.len() {
+                let next_children_passed = children_passed
+                    .checked_add(1)
+                    .expect("node key count cannot overflow usize");
+                stack.push((node, next_children_passed));
             }
-            if 0 < children_passed && children_passed <= node.keys.len() {
-                count += 1;
+            if let Some(children) = node.children.as_ref() {
+                stack.push((&children[children_passed], 0));
+            }
+
+            if children_passed > 0 {
+                count = count
+                    .checked_add(1)
+                    .expect("range size cannot overflow usize");
             }
         }
         (count, Some(count))
