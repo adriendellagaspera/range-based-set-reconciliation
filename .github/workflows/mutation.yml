@@ -1,0 +1,337 @@
+name: mutation
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mutation-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: never
+
+jobs:
+  plan:
+    name: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      fingerprint: ${{ steps.fingerprint.outputs.fingerprint }}
+      proof_hit: ${{ steps.restore.outputs.cache-hit }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@1.99.0
+
+      - name: Install cargo-mutants
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-mutants@27.1.0
+
+      - name: Freeze dependencies and mutation inventories
+        run: |
+          set -euo pipefail
+          cargo generate-lockfile
+
+          cargo mutants -p rsos \
+            --exclude 'rsos/src/counters.rs' \
+            --list > rsos-mutants.txt
+
+          cargo mutants -p rbsr \
+            --exclude 'rbsr/src/probe_harness.rs' \
+            --exclude 'rbsr/src/policy/constant_stride_split.rs' \
+            --exclude 'rbsr/src/policy/span_hashed_stride_split.rs' \
+            --exclude-re 'local_for_testing|remote_for_testing' \
+            --list > rbsr-stable-mutants.txt
+
+          RUSTFLAGS='--cfg rbsr_internal_testing' cargo mutants -p rbsr \
+            --file 'rbsr/src/probe_harness.rs' \
+            --file 'rbsr/src/policy/constant_stride_split.rs' \
+            --file 'rbsr/src/policy/span_hashed_stride_split.rs' \
+            --examine-re 'local_for_testing|remote_for_testing|probe_harness|constant_stride_split|span_hashed_stride_split' \
+            --list > rbsr-internal-mutants.txt
+
+          printf 'rsos_mutants=%s\n' "$(wc -l < rsos-mutants.txt)"
+          printf 'rbsr_stable_mutants=%s\n' "$(wc -l < rbsr-stable-mutants.txt)"
+          printf 'rbsr_internal_mutants=%s\n' "$(wc -l < rbsr-internal-mutants.txt)"
+
+      - name: Compute proof fingerprint
+        id: fingerprint
+        run: |
+          set -euo pipefail
+
+          {
+            echo 'policy=v1'
+            echo 'rust=1.99.0'
+            echo 'cargo-mutants=27.1.0'
+            echo 'rsos=workspace-tests,jobs=2,shards=8,exclude-counters'
+            echo 'rbsr-stable=jobs=2,stable-surface'
+            echo 'rbsr-internal=workspace-tests,jobs=2,rbsr_internal_testing'
+            rustc -Vv
+            cargo -V
+            cargo mutants --version
+            sha256sum Cargo.toml rsos/Cargo.toml rbsr/Cargo.toml Cargo.lock
+            sha256sum .github/workflows/mutation.yml
+            find rsos rbsr -type f -name '*.rs' -print0 | sort -z | xargs -0 sha256sum
+            if test -d .cargo; then
+              find .cargo -type f -print0 | sort -z | xargs -0 sha256sum
+            fi
+            sha256sum rsos-mutants.txt rbsr-stable-mutants.txt rbsr-internal-mutants.txt
+          } > mutation-fingerprint-input.txt
+
+          fingerprint="$(sha256sum mutation-fingerprint-input.txt | cut -d' ' -f1)"
+          echo "fingerprint=$fingerprint" | tee -a "$GITHUB_OUTPUT"
+
+      - name: Restore successful mutation proof
+        id: restore
+        uses: actions/cache/restore@v4
+        with:
+          path: .mutation-proof
+          key: mutation-proof-v1-${{ steps.fingerprint.outputs.fingerprint }}
+
+      - name: Validate restored proof
+        if: steps.restore.outputs.cache-hit == 'true'
+        env:
+          FINGERPRINT: ${{ steps.fingerprint.outputs.fingerprint }}
+        run: |
+          set -euo pipefail
+          test -f .mutation-proof/proof.txt
+          grep -Fx "fingerprint=$FINGERPRINT" .mutation-proof/proof.txt
+          grep -Fx 'status=success' .mutation-proof/proof.txt
+
+      - name: Upload frozen mutation plan
+        if: steps.restore.outputs.cache-hit != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutation-plan
+          path: |
+            Cargo.lock
+            rsos-mutants.txt
+            rbsr-stable-mutants.txt
+            rbsr-internal-mutants.txt
+
+  rsos:
+    name: rsos ${{ matrix.shard }}/8
+    needs: plan
+    if: needs.plan.result == 'success' && needs.plan.outputs.proof_hit != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5, 6, 7]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: mutation-plan
+
+      - uses: dtolnay/rust-toolchain@1.99.0
+
+      - name: Install cargo-mutants
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-mutants@27.1.0
+
+      - name: Verify frozen RSOS inventory
+        run: |
+          set -euo pipefail
+          cargo mutants -p rsos \
+            --exclude 'rsos/src/counters.rs' \
+            --list > current-rsos-mutants.txt
+          diff -u rsos-mutants.txt current-rsos-mutants.txt
+
+      - name: Run RSOS mutations
+        env:
+          SHARD: ${{ matrix.shard }}
+        run: |
+          set -euo pipefail
+          cargo mutants -p rsos \
+            --exclude 'rsos/src/counters.rs' \
+            --test-workspace=true \
+            --cargo-arg=--locked \
+            --shard "$SHARD/8" \
+            --jobs 2 \
+            --no-shuffle \
+            --caught \
+            --unviable
+
+      - name: Upload failed mutation output
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rsos-${{ matrix.shard }}-failure
+          path: mutants.out
+          if-no-files-found: ignore
+
+  rbsr-stable:
+    name: rbsr stable
+    needs: plan
+    if: needs.plan.result == 'success' && needs.plan.outputs.proof_hit != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: mutation-plan
+
+      - uses: dtolnay/rust-toolchain@1.99.0
+
+      - name: Install cargo-mutants
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-mutants@27.1.0
+
+      - name: Verify frozen stable RBSR inventory
+        run: |
+          set -euo pipefail
+          cargo mutants -p rbsr \
+            --exclude 'rbsr/src/probe_harness.rs' \
+            --exclude 'rbsr/src/policy/constant_stride_split.rs' \
+            --exclude 'rbsr/src/policy/span_hashed_stride_split.rs' \
+            --exclude-re 'local_for_testing|remote_for_testing' \
+            --list > current-rbsr-stable-mutants.txt
+          diff -u rbsr-stable-mutants.txt current-rbsr-stable-mutants.txt
+
+      - name: Run stable RBSR mutations
+        run: |
+          set -euo pipefail
+          cargo mutants -p rbsr \
+            --exclude 'rbsr/src/probe_harness.rs' \
+            --exclude 'rbsr/src/policy/constant_stride_split.rs' \
+            --exclude 'rbsr/src/policy/span_hashed_stride_split.rs' \
+            --exclude-re 'local_for_testing|remote_for_testing' \
+            --cargo-arg=--locked \
+            --jobs 2 \
+            --no-shuffle \
+            --caught \
+            --unviable
+
+      - name: Upload failed mutation output
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rbsr-stable-failure
+          path: mutants.out
+          if-no-files-found: ignore
+
+  rbsr-internal:
+    name: rbsr internal
+    needs: plan
+    if: needs.plan.result == 'success' && needs.plan.outputs.proof_hit != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      RUSTFLAGS: --cfg rbsr_internal_testing
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: mutation-plan
+
+      - uses: dtolnay/rust-toolchain@1.99.0
+
+      - name: Install cargo-mutants
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-mutants@27.1.0
+
+      - name: Verify frozen internal RBSR inventory
+        run: |
+          set -euo pipefail
+          cargo mutants -p rbsr \
+            --file 'rbsr/src/probe_harness.rs' \
+            --file 'rbsr/src/policy/constant_stride_split.rs' \
+            --file 'rbsr/src/policy/span_hashed_stride_split.rs' \
+            --examine-re 'local_for_testing|remote_for_testing|probe_harness|constant_stride_split|span_hashed_stride_split' \
+            --list > current-rbsr-internal-mutants.txt
+          diff -u rbsr-internal-mutants.txt current-rbsr-internal-mutants.txt
+
+      - name: Run internal RBSR mutations
+        run: |
+          set -euo pipefail
+          cargo mutants -p rbsr \
+            --file 'rbsr/src/probe_harness.rs' \
+            --file 'rbsr/src/policy/constant_stride_split.rs' \
+            --file 'rbsr/src/policy/span_hashed_stride_split.rs' \
+            --examine-re 'local_for_testing|remote_for_testing|probe_harness|constant_stride_split|span_hashed_stride_split' \
+            --test-workspace=true \
+            --cargo-arg=--locked \
+            --jobs 2 \
+            --no-shuffle \
+            --caught \
+            --unviable
+
+      - name: Upload failed mutation output
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rbsr-internal-failure
+          path: mutants.out
+          if-no-files-found: ignore
+
+  mutation-gate:
+    name: mutation gate
+    needs: [plan, rsos, rbsr-stable, rbsr-internal]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Validate mutation result
+        env:
+          PLAN_RESULT: ${{ needs.plan.result }}
+          PROOF_HIT: ${{ needs.plan.outputs.proof_hit }}
+          RSOS_RESULT: ${{ needs.rsos.result }}
+          RBSR_STABLE_RESULT: ${{ needs.rbsr-stable.result }}
+          RBSR_INTERNAL_RESULT: ${{ needs.rbsr-internal.result }}
+        run: |
+          set -euo pipefail
+
+          test "$PLAN_RESULT" = success
+
+          if test "$PROOF_HIT" = true; then
+            echo 'Validated cached successful mutation proof.'
+            exit 0
+          fi
+
+          test "$RSOS_RESULT" = success
+          test "$RBSR_STABLE_RESULT" = success
+          test "$RBSR_INTERNAL_RESULT" = success
+
+      - name: Write successful mutation proof
+        if: >-
+          needs.plan.result == 'success' &&
+          needs.plan.outputs.proof_hit != 'true' &&
+          needs.rsos.result == 'success' &&
+          needs.rbsr-stable.result == 'success' &&
+          needs.rbsr-internal.result == 'success'
+        env:
+          FINGERPRINT: ${{ needs.plan.outputs.fingerprint }}
+        run: |
+          set -euo pipefail
+          mkdir -p .mutation-proof
+          {
+            echo "fingerprint=$FINGERPRINT"
+            echo 'status=success'
+          } > .mutation-proof/proof.txt
+
+      - name: Save successful mutation proof
+        if: >-
+          needs.plan.result == 'success' &&
+          needs.plan.outputs.proof_hit != 'true' &&
+          needs.rsos.result == 'success' &&
+          needs.rbsr-stable.result == 'success' &&
+          needs.rbsr-internal.result == 'success'
+        uses: actions/cache/save@v4
+        with:
+          path: .mutation-proof
+          key: mutation-proof-v1-${{ needs.plan.outputs.fingerprint }}
