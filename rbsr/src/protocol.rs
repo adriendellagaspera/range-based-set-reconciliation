@@ -15,6 +15,7 @@
 //! [`AddAssign`](std::ops::AddAssign). This file keeps the public type definitions (their module
 //! location is their `cargo public-api`-visible path) plus the round-driving logic itself.
 
+use std::num::NonZeroUsize;
 use std::ops::Bound;
 
 use rand::rngs::StdRng;
@@ -201,15 +202,12 @@ where
                 // IDLIST is one-directional: a non-empty peer range is bounced back advertised as
                 // empty so the peer enumerates its side too.
                 outcome.enumerated += 1;
-                match remote.size() {
-                    0 => {}
-                    _ => {
-                        child_ranges.push(RangeAggregate {
-                            range: KeyRange::new(start_bound.clone(), end_bound.clone()),
-                            aggregate: Aggregate::ZERO,
-                        });
-                        outcome.children += 1;
-                    }
+                if NonZeroUsize::new(remote.size()).is_some() {
+                    child_ranges.push(RangeAggregate {
+                        range: KeyRange::new(start_bound.clone(), end_bound.clone()),
+                        aggregate: Aggregate::ZERO,
+                    });
+                    outcome.children += 1;
                 }
                 enumeration_ranges.push((start_bound.into(), end_bound.into()));
             }
