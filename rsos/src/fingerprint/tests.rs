@@ -63,6 +63,55 @@ fn sub_borrows_across_limbs() {
     );
 }
 
+#[test]
+fn byte_encoding_and_deserialization_preserve_all_limbs() {
+    let fingerprint = Fingerprint([
+        0x0102_0304_0506_0708,
+        0x1112_1314_1516_1718,
+        0x2122_2324_2526_2728,
+        0x3132_3334_3536_3738,
+    ]);
+    let expected = [
+        0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01, 0x18, 0x17, 0x16, 0x15, 0x14, 0x13, 0x12,
+        0x11, 0x28, 0x27, 0x26, 0x25, 0x24, 0x23, 0x22, 0x21, 0x38, 0x37, 0x36, 0x35, 0x34, 0x33,
+        0x32, 0x31,
+    ];
+
+    assert_eq!(fingerprint.to_le_bytes(), expected);
+
+    let deserializer =
+        serde::de::value::SeqDeserializer::<_, serde::de::value::Error>::new(expected.into_iter());
+    let decoded =
+        <Fingerprint as serde::Deserialize>::deserialize(deserializer).expect("valid fingerprint");
+    assert_eq!(decoded, fingerprint);
+}
+
+#[test]
+fn assignment_operators_apply_the_same_group_operations() {
+    let original = Fingerprint([1, 2, 3, 4]);
+    let delta = Fingerprint([5, 6, 7, 8]);
+    let mut fingerprint = original;
+
+    fingerprint += delta;
+    assert_eq!(fingerprint, original + delta);
+
+    fingerprint -= delta;
+    assert_eq!(fingerprint, original);
+}
+
+#[test]
+fn display_and_debug_render_all_limbs_most_significant_first() {
+    let fingerprint = Fingerprint([1, 2, 3, 4]);
+    assert_eq!(
+        fingerprint.to_string(),
+        "0000000000000004000000000000000300000000000000020000000000000001"
+    );
+    assert_eq!(
+        format!("{fingerprint:?}"),
+        "Fingerprint(0000000000000004000000000000000300000000000000020000000000000001)"
+    );
+}
+
 // Golden vectors: changing these is a wire break, not a refactor.
 
 #[test]

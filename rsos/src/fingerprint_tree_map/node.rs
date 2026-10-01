@@ -116,18 +116,14 @@ impl<K, V> Node<K, V> {
     fn fingerprints_mut_for_insert(&mut self) -> &mut Vec<Fingerprint> {
         let next_len = self.fingerprints.len() + 1;
         let target = Self::target_fingerprint_capacity(next_len);
-        if self.fingerprints.capacity() < target {
-            self.fingerprints
-                .reserve_exact(target - self.fingerprints.capacity());
-        }
+        self.fingerprints
+            .reserve_exact(target.saturating_sub(self.fingerprints.capacity()));
         &mut self.fingerprints
     }
 
     fn compact_fingerprints(&mut self) {
         let target = Self::target_fingerprint_capacity(self.fingerprints.len());
-        if self.fingerprints.capacity() > target {
-            self.fingerprints.shrink_to(target);
-        }
+        self.fingerprints.shrink_to(target);
     }
 
     pub(super) fn push_fingerprint(&mut self, fingerprint: Fingerprint) {
@@ -363,5 +359,44 @@ impl<K, V> Node<K, V> {
             }
             current.compose_into_subtree(absorbed);
         }
+    }
+}
+
+#[cfg(test)]
+mod capacity_tests {
+    use super::*;
+
+    #[test]
+    fn fingerprint_capacity_policy_has_exact_low_and_high_tiers() {
+        assert_eq!(Node::<(), ()>::target_fingerprint_capacity(0), MIN_CAPACITY);
+        assert_eq!(
+            Node::<(), ()>::target_fingerprint_capacity(MIN_CAPACITY),
+            MIN_CAPACITY
+        );
+        assert_eq!(
+            Node::<(), ()>::target_fingerprint_capacity(MIN_CAPACITY + 1),
+            MAX_CAPACITY
+        );
+        assert_eq!(
+            Node::<(), ()>::target_fingerprint_capacity(MAX_CAPACITY),
+            MAX_CAPACITY
+        );
+    }
+
+    #[test]
+    fn fingerprint_storage_grows_and_compacts_between_capacity_tiers() {
+        let mut node = Node::<(), ()>::new();
+
+        for i in 0..MIN_CAPACITY {
+            node.push_fingerprint(Fingerprint([i as u64, 0, 0, 0]));
+        }
+        assert_eq!(node.fingerprint_capacity(), MIN_CAPACITY);
+
+        node.push_fingerprint(Fingerprint([MIN_CAPACITY as u64, 0, 0, 0]));
+        assert_eq!(node.fingerprint_capacity(), MAX_CAPACITY);
+
+        node.pop_fingerprint();
+        node.compact_fingerprints();
+        assert_eq!(node.fingerprint_capacity(), MIN_CAPACITY);
     }
 }

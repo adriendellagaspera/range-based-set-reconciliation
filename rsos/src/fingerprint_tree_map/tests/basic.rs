@@ -13,7 +13,14 @@ use rand::{seq::SliceRandom, Rng, SeedableRng};
 use crate::aggregate::Aggregate;
 use crate::fingerprint::lift;
 
-use super::super::FingerprintTreeMap;
+use super::super::{FingerprintTreeMap, B, MAX_CAPACITY, MIN_CAPACITY};
+
+#[test]
+fn btree_order_and_capacity_constants_match_the_documented_order_six_layout() {
+    assert_eq!(B, 6);
+    assert_eq!(MIN_CAPACITY, 5);
+    assert_eq!(MAX_CAPACITY, 11);
+}
 
 #[test]
 fn test_simple() {
