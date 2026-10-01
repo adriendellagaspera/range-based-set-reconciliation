@@ -11,9 +11,9 @@ env:
 
 jobs:
   rsos:
-    name: rsos shard 0/8 (${{ matrix.scope }})
+    name: rsos shard 0/32 (${{ matrix.scope }})
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 12
     strategy:
       fail-fast: false
       matrix:
@@ -24,7 +24,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
-          key: mutation-test-selection-${{ matrix.scope }}
+          key: mutation-test-selection-v2-${{ matrix.scope }}
 
       - name: Install cargo-mutants
         uses: taiki-e/install-action@v2
@@ -36,7 +36,7 @@ jobs:
           set -euo pipefail
           cargo mutants -p rsos \
             --exclude 'rsos/src/counters.rs' \
-            --shard 0/8 \
+            --shard 0/32 \
             --list > mutants.txt
           echo "mutant_count=$(wc -l < mutants.txt)"
           sha256sum mutants.txt
@@ -49,7 +49,7 @@ jobs:
           args=(
             -p rsos
             --exclude 'rsos/src/counters.rs'
-            --shard 0/8
+            --shard 0/32
             --jobs 1
             --no-shuffle
             --caught
@@ -59,18 +59,6 @@ jobs:
             args+=(--test-workspace=true)
           fi
           cargo mutants "${args[@]}"
-
-      - name: Print summary
-        if: always()
-        run: |
-          test ! -f mutants.out/outcomes.json || python3 - <<'PY'
-          import json
-          from pathlib import Path
-          p = Path("mutants.out/outcomes.json")
-          if p.exists():
-              d = json.loads(p.read_text())
-              print(json.dumps(d.get("summary", d), sort_keys=True))
-          PY
 
       - uses: actions/upload-artifact@v4
         if: always()
