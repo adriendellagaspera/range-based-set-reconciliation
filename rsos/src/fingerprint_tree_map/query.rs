@@ -17,6 +17,24 @@ use crate::aggregate::Aggregate;
 use super::node::Node;
 use super::{element, FingerprintTreeMap};
 
+fn range_covers_lower_separator<K: Ord>(start: Bound<&K>, lower_bound: Option<&K>) -> bool {
+    match start {
+        Bound::Unbounded => true,
+        Bound::Included(key) | Bound::Excluded(key) => {
+            lower_bound.is_some_and(|lower_bound| key <= lower_bound)
+        }
+    }
+}
+
+fn range_covers_upper_separator<K: Ord>(end: Bound<&K>, upper_bound: Option<&K>) -> bool {
+    match end {
+        Bound::Unbounded => true,
+        Bound::Included(key) | Bound::Excluded(key) => {
+            upper_bound.is_some_and(|upper_bound| key >= upper_bound)
+        }
+    }
+}
+
 impl<K: Ord, V> FingerprintTreeMap<K, V> {
     /// Bundled [`Aggregate`] over a range of keys in one `O(log n)` tree walk;
     /// [`Rsos::aggregate`](crate::Rsos::aggregate)'s realization.
@@ -30,47 +48,39 @@ impl<K: Ord, V> FingerprintTreeMap<K, V> {
             upper_bound: Option<&K>,
         ) -> Aggregate {
             crate::counters::record_aggregate_node_visit();
-            let lower_bound_included = match range.start_bound() {
-                Bound::Unbounded => true,
-                Bound::Included(key) | Bound::Excluded(key) => {
-                    if let Some(lower_bound) = lower_bound {
-                        key < lower_bound
-                    } else {
-                        false
-                    }
-                }
-            };
-            let upper_bound_included = match range.end_bound() {
-                Bound::Unbounded => true,
-                Bound::Included(key) | Bound::Excluded(key) => {
-                    if let Some(upper_bound) = upper_bound {
-                        key > upper_bound
-                    } else {
-                        false
-                    }
-                }
-            };
+            let lower_bound_included =
+                range_covers_lower_separator(range.start_bound(), lower_bound);
+            let upper_bound_included = range_covers_upper_separator(range.end_bound(), upper_bound);
             // Both bounds inside the range: the cached subtree aggregate is the answer.
             if lower_bound_included && upper_bound_included {
                 crate::counters::record_aggregate_early_exit();
                 return node.subtree();
             }
             let mut cum = Aggregate::ZERO;
-            let mut i = 0;
-            while i < node.keys.len() && node.keys[i].rcmp(range) == RangeOrdering::Below {
-                i += 1;
-            }
-            while i < node.keys.len() && node.keys[i].rcmp(range) == RangeOrdering::Inside {
-                let cur_bound = Some(&node.keys[i]);
-                if let Some(children) = node.children.as_ref() {
-                    cum += aux(&children[i], range, lower_bound, cur_bound);
+            // Keep traversal bounded by the node's key count: unlike a `while` cursor, a
+            // mutation of the index update cannot turn either scan into a non-terminating loop.
+            let mut first_inside = 0;
+            for key in &node.keys {
+                if key.rcmp(range) != RangeOrdering::Below {
+                    break;
                 }
-                cum += element(node.fingerprint(i));
+                first_inside += 1;
+            }
+            let mut after_inside = first_inside;
+            for index in first_inside..node.keys.len() {
+                if node.keys[index].rcmp(range) != RangeOrdering::Inside {
+                    break;
+                }
+                let cur_bound = Some(&node.keys[index]);
+                if let Some(children) = node.children.as_ref() {
+                    cum += aux(&children[index], range, lower_bound, cur_bound);
+                }
+                cum += element(node.fingerprint(index));
                 lower_bound = cur_bound;
-                i += 1;
+                after_inside = index + 1;
             }
             if let Some(children) = node.children.as_ref() {
-                cum += aux(&children[i], range, lower_bound, upper_bound);
+                cum += aux(&children[after_inside], range, lower_bound, upper_bound);
             }
             cum
         }
@@ -172,5 +182,57 @@ impl<K: Ord, V> FingerprintTreeMap<K, V> {
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.len() == 0
+    }
+}
+
+#[cfg(test)]
+mod separator_coverage_tests {
+    use super::{range_covers_lower_separator, range_covers_upper_separator};
+    use std::ops::Bound;
+
+    #[test]
+    fn lower_separator_coverage_is_inclusive_and_directional() {
+        let separator = 10;
+
+        assert!(range_covers_lower_separator::<i32>(
+            Bound::Unbounded,
+            Some(&separator)
+        ));
+        assert!(range_covers_lower_separator(
+            Bound::Included(&5),
+            Some(&separator)
+        ));
+        assert!(range_covers_lower_separator(
+            Bound::Excluded(&10),
+            Some(&separator)
+        ));
+        assert!(!range_covers_lower_separator(
+            Bound::Included(&11),
+            Some(&separator)
+        ));
+        assert!(!range_covers_lower_separator(Bound::Included(&5), None));
+    }
+
+    #[test]
+    fn upper_separator_coverage_is_inclusive_and_directional() {
+        let separator = 10;
+
+        assert!(range_covers_upper_separator::<i32>(
+            Bound::Unbounded,
+            Some(&separator)
+        ));
+        assert!(range_covers_upper_separator(
+            Bound::Included(&15),
+            Some(&separator)
+        ));
+        assert!(range_covers_upper_separator(
+            Bound::Excluded(&10),
+            Some(&separator)
+        ));
+        assert!(!range_covers_upper_separator(
+            Bound::Included(&9),
+            Some(&separator)
+        ));
+        assert!(!range_covers_upper_separator(Bound::Included(&15), None));
     }
 }
