@@ -123,9 +123,7 @@ impl<K> BoundedRange<K> {
         let start_index = size.admit(raw_start);
         let end_index = size.admit(raw_end);
         // The clamp bit exactly when admitting changed the value — no flag to carry alongside.
-        if let Some(offender) =
-            clamped_rank_offender(raw_start, raw_end, start_index, end_index)
-        {
+        if let Some(offender) = clamped_rank_offender(raw_start, raw_end, start_index, end_index) {
             let size = size.get();
             debug!(
                 "RsosView backend broke rank-within-store: returned rank {offender} for a store of \
@@ -140,7 +138,6 @@ impl<K> BoundedRange<K> {
         })
     }
 }
-
 
 #[cfg(test)]
 mod tests {
