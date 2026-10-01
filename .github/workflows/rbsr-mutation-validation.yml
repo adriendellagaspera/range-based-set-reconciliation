@@ -6,6 +6,8 @@ on:
 permissions:
   contents: read
 
+# rerun after bounded traversal refactor
+
 env:
   CARGO_TERM_COLOR: never
   CARGO_PROFILE_TEST_DEBUG: "0"
