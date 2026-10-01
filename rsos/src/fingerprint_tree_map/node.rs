@@ -29,10 +29,7 @@ pub(crate) struct Node<K, V> {
     // re-serializing boundary entries. Unlike keys/values, however, their 32-byte slots are
     // stored out of line: reserving MAX_CAPACITY slots inline costs every sparsely occupied node
     // 352 bytes even though a non-root B-tree node normally holds only 5..=11 entries.
-    //
-    // The Arc matters for copy-on-write snapshots: cloning a Node while an older tree version is
-    // retained shares this buffer until that exact node's fingerprints are mutated.
-    pub(super) fingerprints: Arc<Vec<Fingerprint>>,
+    pub(super) fingerprints: Vec<Fingerprint>,
     /// `Arc`, not `Box`, for each *element*: every child is potentially shared with an older
     /// retained version of the tree. A mutating descent forks a child via [`Arc::make_mut`] only
     /// when it is actually shared (refcount > 1); an unshared child is mutated in place, no
@@ -58,7 +55,7 @@ impl<K, V> Node<K, V> {
         Node {
             keys: ArrayVec::new(),
             values: ArrayVec::new(),
-            fingerprints: Arc::new(Vec::new()),
+            fingerprints: Vec::new(),
             children: None,
             subtree: Aggregate::ZERO,
         }
@@ -119,18 +116,17 @@ impl<K, V> Node<K, V> {
     fn fingerprints_mut_for_insert(&mut self) -> &mut Vec<Fingerprint> {
         let next_len = self.fingerprints.len() + 1;
         let target = Self::target_fingerprint_capacity(next_len);
-        let fingerprints = Arc::make_mut(&mut self.fingerprints);
-        if fingerprints.capacity() < target {
-            fingerprints.reserve_exact(target - fingerprints.capacity());
+        if self.fingerprints.capacity() < target {
+            self.fingerprints
+                .reserve_exact(target - self.fingerprints.capacity());
         }
-        fingerprints
+        &mut self.fingerprints
     }
 
     fn compact_fingerprints(&mut self) {
         let target = Self::target_fingerprint_capacity(self.fingerprints.len());
-        let fingerprints = Arc::make_mut(&mut self.fingerprints);
-        if fingerprints.capacity() > target {
-            fingerprints.shrink_to(target);
+        if self.fingerprints.capacity() > target {
+            self.fingerprints.shrink_to(target);
         }
     }
 
@@ -144,11 +140,11 @@ impl<K, V> Node<K, V> {
     }
 
     pub(super) fn pop_fingerprint(&mut self) -> Option<Fingerprint> {
-        Arc::make_mut(&mut self.fingerprints).pop()
+        self.fingerprints.pop()
     }
 
     pub(super) fn remove_fingerprint(&mut self, index: usize) -> Fingerprint {
-        Arc::make_mut(&mut self.fingerprints).remove(index)
+        self.fingerprints.remove(index)
     }
 
     pub(super) fn replace_fingerprint(
@@ -156,10 +152,7 @@ impl<K, V> Node<K, V> {
         index: usize,
         fingerprint: Fingerprint,
     ) -> Fingerprint {
-        std::mem::replace(
-            &mut Arc::make_mut(&mut self.fingerprints)[index],
-            fingerprint,
-        )
+        std::mem::replace(&mut self.fingerprints[index], fingerprint)
     }
 
     /// Recompute [`subtree`](Node::subtree) by composing own separators with each child's
@@ -198,7 +191,7 @@ impl<K, V> Node<K, V> {
             let mut right_sibling = Node {
                 keys: ArrayVec::from_iter(self.keys.drain(mid + 1..)),
                 values: ArrayVec::from_iter(self.values.drain(mid + 1..)),
-                fingerprints: Arc::new(Arc::make_mut(&mut self.fingerprints).split_off(mid + 1)),
+                fingerprints: self.fingerprints.split_off(mid + 1),
                 children: self
                     .children
                     .as_mut()
@@ -347,7 +340,7 @@ impl<K, V> Node<K, V> {
             let current = Arc::make_mut(&mut children[merge_into]);
             let k = self.keys.remove(merge_into);
             let v = self.values.remove(merge_into);
-            let h = Arc::make_mut(&mut self.fingerprints).remove(merge_into);
+            let h = self.fingerprints.remove(merge_into);
             current.keys.push(k);
             current.values.push(v);
             current.push_fingerprint(h);
