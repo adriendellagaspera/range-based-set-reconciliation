@@ -1,0 +1,166 @@
+name: mutation full current
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: never
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.99.0
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-mutants@27.1.0
+      - name: Freeze dependencies and inventories
+        run: |
+          set -euo pipefail
+          rustc -Vv
+          cargo -V
+          cargo mutants --version
+          cargo generate-lockfile
+          sha256sum Cargo.lock
+
+          cargo mutants -p rsos \
+            --exclude 'rsos/src/counters.rs' \
+            --list > rsos-mutants.txt
+
+          cargo mutants -p rbsr \
+            --exclude 'rbsr/src/probe_harness.rs' \
+            --exclude 'rbsr/src/policy/constant_stride_split.rs' \
+            --exclude 'rbsr/src/policy/span_hashed_stride_split.rs' \
+            --exclude-re 'local_for_testing|remote_for_testing' \
+            --list > rbsr-mutants.txt
+
+          echo "rsos_mutants=$(wc -l < rsos-mutants.txt)"
+          echo "rbsr_mutants=$(wc -l < rbsr-mutants.txt)"
+          sha256sum rsos-mutants.txt rbsr-mutants.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mutation-plan
+          path: |
+            Cargo.lock
+            rsos-mutants.txt
+            rbsr-mutants.txt
+
+  rsos:
+    name: rsos shard ${{ matrix.shard }}/8
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5, 6, 7]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: mutation-plan
+      - uses: dtolnay/rust-toolchain@1.99.0
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-mutants@27.1.0
+      - name: Verify inventory
+        run: |
+          set -euo pipefail
+          cargo mutants -p rsos \
+            --exclude 'rsos/src/counters.rs' \
+            --list > current.txt
+          diff -u rsos-mutants.txt current.txt
+      - name: Run RSOS mutations
+        env:
+          SHARD: ${{ matrix.shard }}
+        run: |
+          set -euo pipefail
+          cargo mutants -p rsos \
+            --exclude 'rsos/src/counters.rs' \
+            --test-workspace=true \
+            --cargo-arg=--locked \
+            --shard "${SHARD}/8" \
+            --jobs 2 \
+            --no-shuffle \
+            --caught \
+            --unviable
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rsos-${{ matrix.shard }}
+          path: mutants.out
+          if-no-files-found: ignore
+
+  rbsr-stable:
+    name: rbsr stable
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: mutation-plan
+      - uses: dtolnay/rust-toolchain@1.99.0
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-mutants@27.1.0
+      - name: Verify inventory
+        run: |
+          set -euo pipefail
+          cargo mutants -p rbsr \
+            --exclude 'rbsr/src/probe_harness.rs' \
+            --exclude 'rbsr/src/policy/constant_stride_split.rs' \
+            --exclude 'rbsr/src/policy/span_hashed_stride_split.rs' \
+            --exclude-re 'local_for_testing|remote_for_testing' \
+            --list > current.txt
+          diff -u rbsr-mutants.txt current.txt
+      - name: Run stable RBSR mutations
+        run: |
+          set -euo pipefail
+          cargo mutants -p rbsr \
+            --exclude 'rbsr/src/probe_harness.rs' \
+            --exclude 'rbsr/src/policy/constant_stride_split.rs' \
+            --exclude 'rbsr/src/policy/span_hashed_stride_split.rs' \
+            --exclude-re 'local_for_testing|remote_for_testing' \
+            --cargo-arg=--locked \
+            --jobs 2 \
+            --no-shuffle \
+            --caught \
+            --unviable
+
+  rbsr-internal:
+    name: rbsr internal
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      RUSTFLAGS: --cfg rbsr_internal_testing
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: mutation-plan
+      - uses: dtolnay/rust-toolchain@1.99.0
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-mutants@27.1.0
+      - name: Run internal RBSR mutations
+        run: |
+          set -euo pipefail
+          cargo mutants -p rbsr \
+            --file 'rbsr/src/probe_harness.rs' \
+            --file 'rbsr/src/policy/constant_stride_split.rs' \
+            --file 'rbsr/src/policy/span_hashed_stride_split.rs' \
+            --examine-re 'local_for_testing|remote_for_testing|probe_harness|constant_stride_split|span_hashed_stride_split' \
+            --test-workspace=true \
+            --cargo-arg=--locked \
+            --jobs 2 \
+            --no-shuffle \
+            --caught \
+            --unviable
