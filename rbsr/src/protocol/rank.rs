@@ -163,4 +163,22 @@ mod tests {
             "ranks already within the store need no diagnostic"
         );
     }
+
+    #[test]
+    fn cut_before_is_strictly_before_the_end_rank() {
+        let size = StoreSize(5);
+        let start = size.admit(2);
+        let end = size.admit(5);
+
+        assert_eq!(
+            start.cut_before(end, 3),
+            None,
+            "a cut that lands exactly on the end is not an interior boundary"
+        );
+        assert_eq!(
+            start.cut_before(end, 2).map(|rank| rank.get()),
+            Some(4),
+            "a cut strictly inside the range remains admissible"
+        );
+    }
 }
