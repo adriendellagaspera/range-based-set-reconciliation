@@ -142,3 +142,27 @@ fn for_fan_out_never_exceeds_the_requested_branching_factor() {
         }
     }
 }
+
+
+#[cfg(rbsr_internal_testing)]
+#[test]
+fn span_hashed_stride_split_matches_golden_spans() {
+    for (span, expected_stride) in [
+        (2usize, 20usize),
+        (17, 22),
+        (32, 24),
+        (397, 5),
+        (999_983, 2),
+    ] {
+        let Decision::Split(stride) =
+            SpanHashedStrideSplit.decide(mismatch(span, span + 1))
+        else {
+            panic!("span {span} must reach the probe's split rule");
+        };
+        assert_eq!(
+            stride.get(),
+            expected_stride,
+            "span {span}: span-hashed probe stride changed"
+        );
+    }
+}
