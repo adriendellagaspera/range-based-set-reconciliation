@@ -123,7 +123,7 @@ fn build_level<K: Serialize + Ord + Clone, V: Serialize + Clone>(
             let (k, v) = &items[cursor];
             node.keys.push(k.clone());
             node.values.push(v.clone());
-            node.fingerprints.push(lift_with(lift_key, k, v));
+            node.push_fingerprint(lift_with(lift_key, k, v));
             cursor += 1;
         }
     }
