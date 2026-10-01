@@ -11,7 +11,7 @@
 
 use std::mem::size_of;
 
-use super::super::{node::Children, FingerprintTreeMap, Node, MAX_CAPACITY};
+use super::super::{node::Children, FingerprintTreeMap, Node};
 use crate::fingerprint::Fingerprint;
 
 #[derive(Default)]
@@ -19,12 +19,14 @@ struct Occupancy {
     nodes: usize,
     leaves: usize,
     elements: usize,
+    fingerprint_capacity: usize,
     max_depth: usize,
 }
 
 fn visit(node: &Node<u32, u32>, depth: usize, counts: &mut Occupancy) {
     counts.nodes += 1;
     counts.elements += node.keys.len();
+    counts.fingerprint_capacity += node.fingerprint_capacity();
     counts.max_depth = counts.max_depth.max(depth);
     match node.children.as_ref() {
         None => counts.leaves += 1,
@@ -40,7 +42,7 @@ fn report(n: usize, kind: &str, tree: &FingerprintTreeMap<u32, u32>) {
     let mut counts = Occupancy::default();
     visit(&tree.root, 1, &mut counts);
     assert_eq!(counts.elements, n);
-    let allocated_fingerprint_slots = counts.nodes * MAX_CAPACITY;
+    let allocated_fingerprint_slots = counts.fingerprint_capacity;
     let child_array_bytes = (counts.nodes - counts.leaves) * size_of::<Children<u32, u32>>();
     println!(
         "{kind},{n},{},{},{},{},{:.4},{},{},{}",
@@ -57,8 +59,8 @@ fn report(n: usize, kind: &str, tree: &FingerprintTreeMap<u32, u32>) {
 
 /// Manual probe: cargo test -p rsos --lib node_occupancy -- --ignored --nocapture
 /// RECONCILE_BASELINE_SIZES=10000,100000,1000000 extends the default sweep.
-/// A per-node inline fingerprint reservation is not a guaranteed equal-sized saving when the
-/// field is removed: alignment, allocation classes and other bookkeeping affect actual RSS.
+/// The reported fingerprint bytes are payload capacity, not allocator/Arc metadata; pair this
+/// structural probe with a process-level memory measurement for the selected candidate.
 #[test]
 #[ignore = "manual #47 memory-layout baseline; do not run a large sweep in CI"]
 fn node_occupancy() {
