@@ -6,7 +6,7 @@ on:
 permissions:
   contents: read
 
-# rerun after bounded traversal refactor
+# rerun after bounded traversal refactor v2
 
 env:
   CARGO_TERM_COLOR: never
