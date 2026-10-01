@@ -1,4 +1,4 @@
-name: mutation profile experiment
+name: mutation profile cross-shard
 
 on:
   pull_request:
@@ -11,7 +11,7 @@ env:
 
 jobs:
   rsos:
-    name: rsos 1/32 (${{ matrix.variant }})
+    name: rsos 17/32 (${{ matrix.variant }})
     runs-on: ubuntu-latest
     timeout-minutes: 12
     strategy:
@@ -24,7 +24,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
-          key: mutation-profile-${{ matrix.variant }}
+          key: mutation-profile-cross-${{ matrix.variant }}
 
       - name: Install cargo-mutants
         uses: taiki-e/install-action@v2
@@ -41,7 +41,7 @@ jobs:
           fi
           cargo mutants -p rsos \
             --exclude 'rsos/src/counters.rs' \
-            --shard 1/32 \
+            --shard 17/32 \
             --jobs 2 \
             --no-shuffle \
             --caught \
