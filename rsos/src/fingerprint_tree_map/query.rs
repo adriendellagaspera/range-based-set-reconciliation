@@ -57,25 +57,29 @@ impl<K: Ord, V> FingerprintTreeMap<K, V> {
                 return node.subtree();
             }
             let mut cum = Aggregate::ZERO;
-            // RangeOrdering is monotone over sorted keys: Below*, Inside*, Above*.
-            // Compute both boundaries up front so traversal is bounded by the node's key count
-            // rather than by a mutable cursor whose progress is part of the loop body.
-            let first_inside = node
-                .keys
-                .partition_point(|key| key.rcmp(range) == RangeOrdering::Below);
-            let after_inside = node
-                .keys
-                .partition_point(|key| key.rcmp(range) != RangeOrdering::Above);
-            for i in first_inside..after_inside {
-                let cur_bound = Some(&node.keys[i]);
-                if let Some(children) = node.children.as_ref() {
-                    cum += aux(&children[i], range, lower_bound, cur_bound);
+            // Keep traversal bounded by the node's key count: unlike a `while` cursor, a
+            // mutation of the index update cannot turn either scan into a non-terminating loop.
+            let mut i = 0;
+            for key in &node.keys {
+                if key.rcmp(range) != RangeOrdering::Below {
+                    break;
                 }
-                cum += element(node.fingerprint(i));
+                i += 1;
+            }
+            for index in i..node.keys.len() {
+                if node.keys[index].rcmp(range) != RangeOrdering::Inside {
+                    break;
+                }
+                let cur_bound = Some(&node.keys[index]);
+                if let Some(children) = node.children.as_ref() {
+                    cum += aux(&children[index], range, lower_bound, cur_bound);
+                }
+                cum += element(node.fingerprint(index));
                 lower_bound = cur_bound;
+                i = index + 1;
             }
             if let Some(children) = node.children.as_ref() {
-                cum += aux(&children[after_inside], range, lower_bound, upper_bound);
+                cum += aux(&children[i], range, lower_bound, upper_bound);
             }
             cum
         }
