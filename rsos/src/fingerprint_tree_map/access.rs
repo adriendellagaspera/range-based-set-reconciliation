@@ -87,9 +87,9 @@ impl<K: Serialize + Clone, V: Serialize + Clone> Drop for Relift<'_, K, V> {
         ) -> Fingerprint {
             let delta = match descent.split_first() {
                 None => {
-                    let old_fp = node.fingerprints[key_index];
+                    let old_fp = node.fingerprint(key_index);
                     let new_fp = lift_with(lift_key, key, &node.values[key_index]);
-                    node.fingerprints[key_index] = new_fp;
+                    node.replace_fingerprint(key_index, new_fp);
                     new_fp - old_fp
                 }
                 Some((&index, rest)) => repair(
