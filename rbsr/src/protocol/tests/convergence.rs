@@ -184,6 +184,11 @@ fn non_progressing_split_is_converted_to_enumerate() {
     // The peer's range was non-empty, so IDLIST's one-directional bounce-back applies here
     // exactly as it would for a policy that had returned `Decision:Enumerate` directly.
     assert_eq!(child_ranges.len(), 1);
+    assert_eq!(
+        outcome.children(),
+        1,
+        "the bounced parent is one emitted child"
+    );
     assert_eq!(child_ranges[0].aggregate, Aggregate::ZERO);
 }
 
