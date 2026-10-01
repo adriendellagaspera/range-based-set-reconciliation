@@ -250,7 +250,8 @@ impl<K: Serialize + Ord, V: Serialize> FingerprintTreeMap<K, V> {
                 // key
                 let fingerprint = lift_with(lift_key, &node.keys[i], &node.values[i]);
                 assert_eq!(
-                    fingerprint, node.fingerprint(i),
+                    fingerprint,
+                    node.fingerprint(i),
                     "per-element fingerprint cache invalid"
                 );
                 cum += element(fingerprint);
