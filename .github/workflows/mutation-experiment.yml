@@ -10,52 +10,117 @@ env:
   CARGO_TERM_COLOR: never
 
 jobs:
-  baseline:
+  stable:
+    name: stable (${{ matrix.package }})
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        package: [rsos, rbsr]
 
     steps:
       - uses: actions/checkout@v4
-
       - uses: dtolnay/rust-toolchain@stable
-
       - uses: Swatinem/rust-cache@v2
-
+        with:
+          key: mutation-${{ matrix.package }}
       - name: Install cargo-mutants
         uses: taiki-e/install-action@v2
         with:
           tool: cargo-mutants@27.1.0
 
-      - name: Record versions
+      - name: Count mutants
+        env:
+          PACKAGE: ${{ matrix.package }}
         run: |
           set -euo pipefail
-          rustc -Vv
-          cargo -V
-          cargo mutants --version
+          if test "${PACKAGE}" = "rbsr"; then
+            cargo mutants -p rbsr \
+              --exclude 'rbsr/src/probe_harness.rs' \
+              --exclude 'rbsr/src/policy/constant_stride_split.rs' \
+              --exclude 'rbsr/src/policy/span_hashed_stride_split.rs' \
+              --exclude-re 'local_for_testing|remote_for_testing' \
+              --list | tee mutants.txt
+          else
+            cargo mutants -p rsos --list | tee mutants.txt
+          fi
+          echo "mutant_count=$(wc -l < mutants.txt)"
 
-      - name: Count workspace mutants
+      - name: Run mutations serially
+        env:
+          PACKAGE: ${{ matrix.package }}
         run: |
           set -euo pipefail
-          cargo mutants --workspace --list | tee mutants-workspace.txt
-          echo "workspace_mutants=$(wc -l < mutants-workspace.txt)"
+          if test "${PACKAGE}" = "rbsr"; then
+            cargo mutants -p rbsr \
+              --exclude 'rbsr/src/probe_harness.rs' \
+              --exclude 'rbsr/src/policy/constant_stride_split.rs' \
+              --exclude 'rbsr/src/policy/span_hashed_stride_split.rs' \
+              --exclude-re 'local_for_testing|remote_for_testing' \
+              --jobs 1 \
+              --no-shuffle \
+              --caught \
+              --unviable
+          else
+            cargo mutants -p rsos \
+              --jobs 1 \
+              --no-shuffle \
+              --caught \
+              --unviable
+          fi
 
-      - name: Count rsos mutants
-        run: |
-          set -euo pipefail
-          cargo mutants -p rsos --list | tee mutants-rsos.txt
-          echo "rsos_mutants=$(wc -l < mutants-rsos.txt)"
+      - name: Print machine-readable outcome
+        if: always()
+        run: test ! -f mutants.out/outcomes.json || cat mutants.out/outcomes.json
 
-      - name: Count rbsr mutants
-        run: |
-          set -euo pipefail
-          cargo mutants -p rbsr --list | tee mutants-rbsr.txt
-          echo "rbsr_mutants=$(wc -l < mutants-rbsr.txt)"
+      - name: Archive mutation output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutation-${{ matrix.package }}
+          path: |
+            mutants.out
+            mutants.txt
+          if-no-files-found: ignore
 
-      - name: Run workspace mutations serially
+  internal:
+    name: internal (rbsr)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      RUSTFLAGS: --cfg rbsr_internal_testing
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: mutation-rbsr-internal
+      - name: Install cargo-mutants
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-mutants@27.1.0
+
+      - name: Count internal mutants
         run: |
           set -euo pipefail
-          cargo mutants \
-            --workspace \
+          cargo mutants -p rbsr \
+            --file 'rbsr/src/probe_harness.rs' \
+            --file 'rbsr/src/policy/constant_stride_split.rs' \
+            --file 'rbsr/src/policy/span_hashed_stride_split.rs' \
+            --examine-re 'local_for_testing|remote_for_testing|probe_harness|constant_stride_split|span_hashed_stride_split' \
+            --list | tee mutants.txt
+          echo "mutant_count=$(wc -l < mutants.txt)"
+
+      - name: Run internal mutations serially
+        run: |
+          set -euo pipefail
+          cargo mutants -p rbsr \
+            --file 'rbsr/src/probe_harness.rs' \
+            --file 'rbsr/src/policy/constant_stride_split.rs' \
+            --file 'rbsr/src/policy/span_hashed_stride_split.rs' \
+            --examine-re 'local_for_testing|remote_for_testing|probe_harness|constant_stride_split|span_hashed_stride_split' \
             --jobs 1 \
             --no-shuffle \
             --caught \
@@ -63,19 +128,14 @@ jobs:
 
       - name: Print machine-readable outcome
         if: always()
-        run: |
-          if test -f mutants.out/outcomes.json; then
-            cat mutants.out/outcomes.json
-          fi
+        run: test ! -f mutants.out/outcomes.json || cat mutants.out/outcomes.json
 
       - name: Archive mutation output
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: mutation-baseline
+          name: mutation-rbsr-internal
           path: |
             mutants.out
-            mutants-workspace.txt
-            mutants-rsos.txt
-            mutants-rbsr.txt
+            mutants.txt
           if-no-files-found: ignore
