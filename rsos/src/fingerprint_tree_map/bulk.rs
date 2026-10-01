@@ -85,20 +85,20 @@ fn build_level<K: Serialize + Ord + Clone, V: Serialize + Clone>(
     let child_min = capacities.min[child_height];
     let child_max = capacities.max[child_height];
 
-    let mut key_count = MAX_CAPACITY.min(n.saturating_sub(1));
-    loop {
-        let child_count = key_count + 1;
-        let remaining = n - key_count;
-        if remaining >= child_count * child_min && remaining <= child_count * child_max {
-            break;
-        }
-        assert!(
-            key_count > min_own_keys,
-            "bulk-build: no valid split of {n} items at height {height} (own keys \
-             {min_own_keys}..={MAX_CAPACITY}, child range {child_min}..={child_max})"
-        );
-        key_count -= 1;
-    }
+    let max_own_keys = MAX_CAPACITY.min(n.saturating_sub(1));
+    let key_count = (min_own_keys..=max_own_keys)
+        .rev()
+        .find(|&key_count| {
+            let child_count = key_count + 1;
+            let remaining = n - key_count;
+            remaining >= child_count * child_min && remaining <= child_count * child_max
+        })
+        .unwrap_or_else(|| {
+            panic!(
+                "bulk-build: no valid split of {n} items at height {height} (own keys \
+                 {min_own_keys}..={MAX_CAPACITY}, child range {child_min}..={child_max})"
+            )
+        });
 
     let child_count = key_count + 1;
     let remaining = n - key_count;
