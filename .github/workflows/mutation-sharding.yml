@@ -1,0 +1,62 @@
+name: mutation sharding current
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: never
+  CARGO_PROFILE_TEST_DEBUG: "0"
+
+jobs:
+  compare:
+    name: shard ${{ matrix.shard }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ["0/4", "0/8", "1/8"]
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.99.0
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-mutants@27.1.0
+
+      - name: Freeze dependencies and inventory
+        run: |
+          set -euo pipefail
+          cargo generate-lockfile
+          sha256sum Cargo.lock
+          cargo mutants -p rsos \
+            --exclude 'rsos/src/counters.rs' \
+            --list > all-mutants.txt
+          echo "all_mutants=$(wc -l < all-mutants.txt)"
+          sha256sum all-mutants.txt
+
+      - name: Run shard
+        env:
+          SHARD: ${{ matrix.shard }}
+        run: |
+          set -euo pipefail
+          cargo mutants -p rsos \
+            --exclude 'rsos/src/counters.rs' \
+            --test-workspace=true \
+            --cargo-arg=--locked \
+            --shard "$SHARD" \
+            --timeout 90 \
+            --jobs 2 \
+            --no-shuffle \
+            --caught \
+            --unviable
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sharding-${{ strategy.job-index }}
+          path: mutants.out
+          if-no-files-found: ignore
