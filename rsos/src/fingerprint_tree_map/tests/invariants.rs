@@ -20,7 +20,9 @@ fn check_invariants_panics_on_a_corrupted_fingerprint_cache() {
     tree.insert(2, 20);
     tree.check_invariants();
 
-    std::sync::Arc::make_mut(&mut tree.root).fingerprints[0] += lift(&999u64, &999u64);
+    let root = std::sync::Arc::make_mut(&mut tree.root);
+    let corrupted = root.fingerprint(0) + lift(&999u64, &999u64);
+    root.replace_fingerprint(0, corrupted);
 
     let panicked =
         std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| tree.check_invariants())).is_err();
@@ -49,7 +51,7 @@ fn check_invariants_panics_on_an_underfull_non_root_node_on_the_rightmost_spine(
             while node.keys.len() >= MIN_CAPACITY {
                 node.keys.pop();
                 node.values.pop();
-                node.fingerprints.pop();
+                node.pop_fingerprint();
             }
         }
         node.refresh_aggregate();
@@ -142,7 +144,8 @@ fn check_invariants_catches_a_corrupted_fingerprint_cache() {
     // Combining with a nonzero fingerprint always changes the value (group addition), so
     // this is guaranteed to no longer match `lift(&1, &10)`.
     let root = std::sync::Arc::make_mut(&mut map.root);
-    root.fingerprints[0] = root.fingerprints[0].combine(Fingerprint([1, 0, 0, 0]));
+    let corrupted = root.fingerprint(0).combine(Fingerprint([1, 0, 0, 0]));
+    root.replace_fingerprint(0, corrupted);
     map.check_invariants();
 }
 
