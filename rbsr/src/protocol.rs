@@ -201,7 +201,7 @@ where
                 // IDLIST is one-directional: a non-empty peer range is bounced back advertised as
                 // empty so the peer enumerates its side too.
                 outcome.enumerated += 1;
-                if remote.size() != 0 {
+                if std::num::NonZeroUsize::new(remote.size()).is_some() {
                     child_ranges.push(RangeAggregate {
                         range: KeyRange::new(start_bound.clone(), end_bound.clone()),
                         aggregate: Aggregate::ZERO,
