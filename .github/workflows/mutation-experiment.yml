@@ -1,4 +1,4 @@
-name: mutation rsos experiments
+name: mutation rsos full baseline
 
 on:
   pull_request:
@@ -8,106 +8,51 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: never
+  CARGO_PROFILE_TEST_DEBUG: "0"
 
 jobs:
-  inventory:
-    name: inventory (rsos stable)
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - name: Install cargo-mutants
-        uses: taiki-e/install-action@v2
-        with:
-          tool: cargo-mutants@27.1.0
-      - name: Count stable RSOS mutants
-        run: |
-          set -euo pipefail
-          cargo mutants --version
-          cargo mutants -p rsos \
-            --exclude 'rsos/src/counters.rs' \
-            --exclude 'rsos/src/**/tests.rs' \
-            --exclude 'rsos/src/**/tests/*.rs' \
-            --list | tee mutants.txt
-          echo "stable_rsos_mutants=$(wc -l < mutants.txt)"
-
-  concurrency:
-    name: concurrency (jobs=${{ matrix.jobs }})
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        jobs: [1, 2, 3]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - name: Install cargo-mutants
-        uses: taiki-e/install-action@v2
-        with:
-          tool: cargo-mutants@27.1.0
-      - name: Run fixed RSOS shard
-        env:
-          JOBS: ${{ matrix.jobs }}
-        run: |
-          set -euo pipefail
-          cargo mutants -p rsos \
-            --exclude 'rsos/src/counters.rs' \
-            --exclude 'rsos/src/**/tests.rs' \
-            --exclude 'rsos/src/**/tests/*.rs' \
-            --shard 0/16 \
-            --jobs "$JOBS" \
-            --no-shuffle \
-            --caught \
-            --unviable
-      - name: Print outcome
-        if: always()
-        run: test ! -f mutants.out/outcomes.json || cat mutants.out/outcomes.json
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: rsos-concurrency-jobs-${{ matrix.jobs }}
-          path: mutants.out
-          if-no-files-found: ignore
-
-  dependent-tests:
-    name: dependent tests (${{ matrix.mode }})
+  rsos:
+    name: rsos shard ${{ matrix.shard }}/8
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
-        mode: [rsos-only, workspace]
+        shard: [0, 1, 2, 3, 4, 5, 6, 7]
+
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: mutation-rsos-full-${{ matrix.shard }}
+
       - name: Install cargo-mutants
         uses: taiki-e/install-action@v2
         with:
           tool: cargo-mutants@27.1.0
-      - name: Mutate RSOS trait adapter
+
+      - name: Run stable RSOS shard
         env:
-          MODE: ${{ matrix.mode }}
+          SHARD: ${{ matrix.shard }}
         run: |
           set -euo pipefail
-          extra=()
-          if test "$MODE" = workspace; then
-            extra+=(--test-workspace=true)
-          fi
           cargo mutants -p rsos \
-            --file 'rsos/src/rsos_trait.rs' \
-            "${extra[@]}" \
-            --jobs 1 \
+            --exclude 'rsos/src/counters.rs' \
+            --test-workspace=true \
+            --shard "${SHARD}/8" \
+            --jobs 2 \
             --no-shuffle \
             --caught \
             --unviable
+
       - name: Print outcome
         if: always()
         run: test ! -f mutants.out/outcomes.json || cat mutants.out/outcomes.json
+
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: rsos-dependent-${{ matrix.mode }}
+          name: mutation-rsos-shard-${{ matrix.shard }}
           path: mutants.out
           if-no-files-found: ignore
