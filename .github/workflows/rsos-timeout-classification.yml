@@ -1,0 +1,48 @@
+name: rsos timeout classification
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: never
+
+jobs:
+  target:
+    name: ${{ matrix.target }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - rsos/src/fingerprint_tree_map/bulk.rs
+          - rsos/src/fingerprint_tree_map/range.rs
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.99.0
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-mutants@27.1.0
+      - run: cargo generate-lockfile
+      - name: Mutate target
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
+          set -euo pipefail
+          cargo mutants -p rsos \
+            --file "$TARGET" \
+            --test-workspace=true \
+            --cargo-arg=--locked \
+            --jobs 2 \
+            --no-shuffle \
+            --caught \
+            --unviable
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ${{ strategy.job-index }}-mutants
+          path: mutants.out
+          if-no-files-found: ignore
