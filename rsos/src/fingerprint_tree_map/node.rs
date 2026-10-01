@@ -197,9 +197,7 @@ impl<K, V> Node<K, V> {
             let mut right_sibling = Node {
                 keys: ArrayVec::from_iter(self.keys.drain(mid + 1..)),
                 values: ArrayVec::from_iter(self.values.drain(mid + 1..)),
-                fingerprints: Arc::new(
-                    Arc::make_mut(&mut self.fingerprints).split_off(mid + 1),
-                ),
+                fingerprints: Arc::new(Arc::make_mut(&mut self.fingerprints).split_off(mid + 1)),
                 children: self
                     .children
                     .as_mut()
@@ -348,7 +346,7 @@ impl<K, V> Node<K, V> {
             let current = Arc::make_mut(&mut children[merge_into]);
             let k = self.keys.remove(merge_into);
             let v = self.values.remove(merge_into);
-            let h = self.remove_fingerprint(merge_into);
+            let h = Arc::make_mut(&mut self.fingerprints).remove(merge_into);
             current.keys.push(k);
             current.values.push(v);
             current.push_fingerprint(h);
