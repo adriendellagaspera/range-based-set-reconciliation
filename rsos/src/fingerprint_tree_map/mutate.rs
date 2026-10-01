@@ -32,10 +32,10 @@ impl<K: Serialize + Ord + Clone, V: Serialize + Clone> FingerprintTreeMap<K, V> 
         ) -> (InsertionTuple<K, V>, Fingerprint, Option<V>) {
             match node.keys.binary_search(&key) {
                 Ok(index) => {
-                    let old_fp = node.fingerprints[index];
+                    let old_fp = node.fingerprint(index);
                     let new_fp = lift_with(lift_key, &key, &value);
                     let diff_fp = new_fp - old_fp;
-                    node.fingerprints[index] = new_fp;
+                    node.replace_fingerprint(index, new_fp);
                     // A value overwritten in place: the element count is unchanged, so the
                     // delta composed in is a zero-size aggregate carrying the fingerprint shift.
                     node.compose_into_subtree(Aggregate::new(0, diff_fp));
@@ -87,7 +87,7 @@ impl<K: Serialize + Ord + Clone, V: Serialize + Clone> FingerprintTreeMap<K, V> 
             let root = Arc::make_mut(&mut self.root);
             root.keys.push(key);
             root.values.push(value);
-            root.fingerprints.push(fingerprint);
+            root.push_fingerprint(fingerprint);
             root.children = Some(Box::new(children));
             root.refresh_aggregate();
         }
@@ -116,7 +116,7 @@ impl<K: Ord, V> FingerprintTreeMap<K, V> {
             } else {
                 let k = node.keys.pop().unwrap();
                 let v = node.values.pop().unwrap();
-                let fp = node.fingerprints.pop().unwrap();
+                let fp = node.pop_fingerprint().unwrap();
                 node.decompose_from_subtree(element(fp));
                 (k, v, fp)
             }
@@ -133,14 +133,14 @@ impl<K: Ord, V> FingerprintTreeMap<K, V> {
                             rightmost_child(Arc::make_mut(&mut children[index]));
                         node.keys[index] = prev_k;
                         let v = std::mem::replace(&mut node.values[index], prev_v);
-                        let fp = std::mem::replace(&mut node.fingerprints[index], prev_fp);
+                        let fp = node.replace_fingerprint(index, prev_fp);
                         node.decompose_from_subtree(element(fp));
                         node.rebalance_after_deletion(index);
                         (fp, Some(v))
                     } else {
                         node.keys.remove(index);
                         let v = node.values.remove(index);
-                        let fp = node.fingerprints.remove(index);
+                        let fp = node.remove_fingerprint(index);
                         node.decompose_from_subtree(element(fp));
                         (fp, Some(v))
                     }
@@ -250,7 +250,8 @@ impl<K: Serialize + Ord, V: Serialize> FingerprintTreeMap<K, V> {
                 // key
                 let fingerprint = lift_with(lift_key, &node.keys[i], &node.values[i]);
                 assert_eq!(
-                    fingerprint, node.fingerprints[i],
+                    fingerprint,
+                    node.fingerprint(i),
                     "per-element fingerprint cache invalid"
                 );
                 cum += element(fingerprint);

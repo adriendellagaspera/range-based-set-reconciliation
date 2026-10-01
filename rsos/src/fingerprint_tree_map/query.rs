@@ -65,7 +65,7 @@ impl<K: Ord, V> FingerprintTreeMap<K, V> {
                 if let Some(children) = node.children.as_ref() {
                     cum += aux(&children[i], range, lower_bound, cur_bound);
                 }
-                cum += element(node.fingerprints[i]);
+                cum += element(node.fingerprint(i));
                 lower_bound = cur_bound;
                 i += 1;
             }
