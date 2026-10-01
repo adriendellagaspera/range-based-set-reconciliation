@@ -17,10 +17,7 @@ use crate::aggregate::Aggregate;
 use super::node::Node;
 use super::{element, FingerprintTreeMap};
 
-fn range_covers_lower_separator<K: Ord>(
-    start: Bound<&K>,
-    lower_bound: Option<&K>,
-) -> bool {
+fn range_covers_lower_separator<K: Ord>(start: Bound<&K>, lower_bound: Option<&K>) -> bool {
     match start {
         Bound::Unbounded => true,
         Bound::Included(key) | Bound::Excluded(key) => {
@@ -29,10 +26,7 @@ fn range_covers_lower_separator<K: Ord>(
     }
 }
 
-fn range_covers_upper_separator<K: Ord>(
-    end: Bound<&K>,
-    upper_bound: Option<&K>,
-) -> bool {
+fn range_covers_upper_separator<K: Ord>(end: Bound<&K>, upper_bound: Option<&K>) -> bool {
     match end {
         Bound::Unbounded => true,
         Bound::Included(key) | Bound::Excluded(key) => {
@@ -56,8 +50,7 @@ impl<K: Ord, V> FingerprintTreeMap<K, V> {
             crate::counters::record_aggregate_node_visit();
             let lower_bound_included =
                 range_covers_lower_separator(range.start_bound(), lower_bound);
-            let upper_bound_included =
-                range_covers_upper_separator(range.end_bound(), upper_bound);
+            let upper_bound_included = range_covers_upper_separator(range.end_bound(), upper_bound);
             // Both bounds inside the range: the cached subtree aggregate is the answer.
             if lower_bound_included && upper_bound_included {
                 crate::counters::record_aggregate_early_exit();
@@ -183,7 +176,6 @@ impl<K: Ord, V> FingerprintTreeMap<K, V> {
     }
 }
 
-
 #[cfg(test)]
 mod separator_coverage_tests {
     use super::{range_covers_lower_separator, range_covers_upper_separator};
@@ -209,10 +201,7 @@ mod separator_coverage_tests {
             Bound::Included(&11),
             Some(&separator)
         ));
-        assert!(!range_covers_lower_separator(
-            Bound::Included(&5),
-            None
-        ));
+        assert!(!range_covers_lower_separator(Bound::Included(&5), None));
     }
 
     #[test]
@@ -235,9 +224,6 @@ mod separator_coverage_tests {
             Bound::Included(&9),
             Some(&separator)
         ));
-        assert!(!range_covers_upper_separator(
-            Bound::Included(&15),
-            None
-        ));
+        assert!(!range_covers_upper_separator(Bound::Included(&15), None));
     }
 }
