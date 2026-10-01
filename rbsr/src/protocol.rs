@@ -221,8 +221,7 @@ where
                 // Preserve the protocol's historical one-child result even if a custom policy
                 // asks to split an empty span. For non-empty spans this is exactly ceil(span / stride).
                 let child_count = block_count(actual_span, stride).max(1);
-                let short_block =
-                    (remainder != 0).then(|| rng.gen_range(0..child_count));
+                let short_block = (remainder != 0).then(|| rng.gen_range(0..child_count));
                 let mut cur_bound = start_bound;
                 let mut cur_index = start_index;
 
