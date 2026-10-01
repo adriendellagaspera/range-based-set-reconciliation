@@ -59,14 +59,15 @@ impl<K: Ord, V> FingerprintTreeMap<K, V> {
             let mut cum = Aggregate::ZERO;
             // Keep traversal bounded by the node's key count: unlike a `while` cursor, a
             // mutation of the index update cannot turn either scan into a non-terminating loop.
-            let mut i = 0;
+            let mut first_inside = 0;
             for key in &node.keys {
                 if key.rcmp(range) != RangeOrdering::Below {
                     break;
                 }
-                i += 1;
+                first_inside += 1;
             }
-            for index in i..node.keys.len() {
+            let mut after_inside = first_inside;
+            for index in first_inside..node.keys.len() {
                 if node.keys[index].rcmp(range) != RangeOrdering::Inside {
                     break;
                 }
@@ -76,10 +77,10 @@ impl<K: Ord, V> FingerprintTreeMap<K, V> {
                 }
                 cum += element(node.fingerprint(index));
                 lower_bound = cur_bound;
-                i = index + 1;
+                after_inside = index + 1;
             }
             if let Some(children) = node.children.as_ref() {
-                cum += aux(&children[i], range, lower_bound, upper_bound);
+                cum += aux(&children[after_inside], range, lower_bound, upper_bound);
             }
             cum
         }
