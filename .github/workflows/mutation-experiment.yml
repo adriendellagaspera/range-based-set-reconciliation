@@ -1,4 +1,4 @@
-name: mutation test-selection experiment
+name: mutation concurrency experiment
 
 on:
   pull_request:
@@ -11,20 +11,20 @@ env:
 
 jobs:
   rsos:
-    name: rsos shard 0/32 (${{ matrix.scope }})
+    name: rsos shard 0/32 (jobs=${{ matrix.local_jobs }})
     runs-on: ubuntu-latest
     timeout-minutes: 12
     strategy:
       fail-fast: false
       matrix:
-        scope: [package, workspace]
+        local_jobs: [1, 2, 3]
 
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
-          key: mutation-test-selection-v2-${{ matrix.scope }}
+          key: mutation-concurrency-${{ matrix.local_jobs }}
 
       - name: Install cargo-mutants
         uses: taiki-e/install-action@v2
@@ -43,27 +43,21 @@ jobs:
 
       - name: Run mutations
         env:
-          SCOPE: ${{ matrix.scope }}
+          LOCAL_JOBS: ${{ matrix.local_jobs }}
         run: |
           set -euo pipefail
-          args=(
-            -p rsos
-            --exclude 'rsos/src/counters.rs'
-            --shard 0/32
-            --jobs 1
-            --no-shuffle
-            --caught
+          cargo mutants -p rsos \
+            --exclude 'rsos/src/counters.rs' \
+            --shard 0/32 \
+            --jobs "${LOCAL_JOBS}" \
+            --no-shuffle \
+            --caught \
             --unviable
-          )
-          if test "${SCOPE}" = workspace; then
-            args+=(--test-workspace=true)
-          fi
-          cargo mutants "${args[@]}"
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: rsos-selection-${{ matrix.scope }}
+          name: rsos-concurrency-${{ matrix.local_jobs }}
           path: |
             mutants.txt
             mutants.out
