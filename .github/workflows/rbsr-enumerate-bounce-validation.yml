@@ -1,0 +1,35 @@
+name: rbsr enumerate bounce validation
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: never
+
+jobs:
+  mutants:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.99.0
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-mutants@27.1.0
+      - run: cargo generate-lockfile
+      - name: Run stable RBSR mutations
+        run: |
+          set -euo pipefail
+          cargo mutants -p rbsr \
+            --exclude 'rbsr/src/probe_harness.rs' \
+            --exclude 'rbsr/src/policy/constant_stride_split.rs' \
+            --exclude 'rbsr/src/policy/span_hashed_stride_split.rs' \
+            --exclude-re 'local_for_testing|remote_for_testing' \
+            --cargo-arg=--locked \
+            --jobs 2 \
+            --no-shuffle \
+            --caught \
+            --unviable
