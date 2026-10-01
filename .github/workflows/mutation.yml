@@ -147,7 +147,28 @@ jobs:
             --list > current-rsos-mutants.txt
           diff -u rsos-mutants.txt current-rsos-mutants.txt
 
+      - name: Restore successful shard proof
+        id: shard-proof
+        uses: actions/cache/restore@v4
+        with:
+          path: .mutation-proof/rsos-${{ matrix.shard }}
+          key: mutation-proof-v1-${{ needs.plan.outputs.fingerprint }}-rsos-${{ matrix.shard }}
+
+      - name: Validate successful shard proof
+        if: steps.shard-proof.outputs.cache-hit == 'true'
+        env:
+          FINGERPRINT: ${{ needs.plan.outputs.fingerprint }}
+          SHARD: ${{ matrix.shard }}
+        run: |
+          set -euo pipefail
+          proof=".mutation-proof/rsos-${SHARD}/proof.txt"
+          grep -Fx "fingerprint=${FINGERPRINT}" "$proof"
+          grep -Fx 'status=success' "$proof"
+          grep -Fx 'kind=rsos' "$proof"
+          grep -Fx "shard=${SHARD}/8" "$proof"
+
       - name: Run RSOS mutations
+        if: steps.shard-proof.outputs.cache-hit != 'true'
         env:
           SHARD: ${{ matrix.shard }}
         run: |
@@ -161,6 +182,29 @@ jobs:
             --no-shuffle \
             --caught \
             --unviable
+
+      - name: Record successful shard proof
+        if: steps.shard-proof.outputs.cache-hit != 'true' && success()
+        env:
+          FINGERPRINT: ${{ needs.plan.outputs.fingerprint }}
+          SHARD: ${{ matrix.shard }}
+        run: |
+          set -euo pipefail
+          dir=".mutation-proof/rsos-${SHARD}"
+          mkdir -p "$dir"
+          {
+            echo "fingerprint=${FINGERPRINT}"
+            echo 'status=success'
+            echo 'kind=rsos'
+            echo "shard=${SHARD}/8"
+          } > "$dir/proof.txt"
+
+      - name: Save successful shard proof
+        if: steps.shard-proof.outputs.cache-hit != 'true' && success()
+        uses: actions/cache/save@v4
+        with:
+          path: .mutation-proof/rsos-${{ matrix.shard }}
+          key: mutation-proof-v1-${{ needs.plan.outputs.fingerprint }}-rsos-${{ matrix.shard }}
 
       - name: Upload failed mutation output
         if: failure()
@@ -201,7 +245,26 @@ jobs:
             --list > current-rbsr-stable-mutants.txt
           diff -u rbsr-stable-mutants.txt current-rbsr-stable-mutants.txt
 
+      - name: Restore successful stable proof
+        id: stable-proof
+        uses: actions/cache/restore@v4
+        with:
+          path: .mutation-proof/rbsr-stable
+          key: mutation-proof-v1-${{ needs.plan.outputs.fingerprint }}-rbsr-stable
+
+      - name: Validate successful stable proof
+        if: steps.stable-proof.outputs.cache-hit == 'true'
+        env:
+          FINGERPRINT: ${{ needs.plan.outputs.fingerprint }}
+        run: |
+          set -euo pipefail
+          proof=.mutation-proof/rbsr-stable/proof.txt
+          grep -Fx "fingerprint=${FINGERPRINT}" "$proof"
+          grep -Fx 'status=success' "$proof"
+          grep -Fx 'kind=rbsr-stable' "$proof"
+
       - name: Run stable RBSR mutations
+        if: steps.stable-proof.outputs.cache-hit != 'true'
         run: |
           set -euo pipefail
           cargo mutants -p rbsr \
@@ -214,6 +277,26 @@ jobs:
             --no-shuffle \
             --caught \
             --unviable
+
+      - name: Record successful stable proof
+        if: steps.stable-proof.outputs.cache-hit != 'true' && success()
+        env:
+          FINGERPRINT: ${{ needs.plan.outputs.fingerprint }}
+        run: |
+          set -euo pipefail
+          mkdir -p .mutation-proof/rbsr-stable
+          {
+            echo "fingerprint=${FINGERPRINT}"
+            echo 'status=success'
+            echo 'kind=rbsr-stable'
+          } > .mutation-proof/rbsr-stable/proof.txt
+
+      - name: Save successful stable proof
+        if: steps.stable-proof.outputs.cache-hit != 'true' && success()
+        uses: actions/cache/save@v4
+        with:
+          path: .mutation-proof/rbsr-stable
+          key: mutation-proof-v1-${{ needs.plan.outputs.fingerprint }}-rbsr-stable
 
       - name: Upload failed mutation output
         if: failure()
@@ -256,7 +339,26 @@ jobs:
             --list > current-rbsr-internal-mutants.txt
           diff -u rbsr-internal-mutants.txt current-rbsr-internal-mutants.txt
 
+      - name: Restore successful internal proof
+        id: internal-proof
+        uses: actions/cache/restore@v4
+        with:
+          path: .mutation-proof/rbsr-internal
+          key: mutation-proof-v1-${{ needs.plan.outputs.fingerprint }}-rbsr-internal
+
+      - name: Validate successful internal proof
+        if: steps.internal-proof.outputs.cache-hit == 'true'
+        env:
+          FINGERPRINT: ${{ needs.plan.outputs.fingerprint }}
+        run: |
+          set -euo pipefail
+          proof=.mutation-proof/rbsr-internal/proof.txt
+          grep -Fx "fingerprint=${FINGERPRINT}" "$proof"
+          grep -Fx 'status=success' "$proof"
+          grep -Fx 'kind=rbsr-internal' "$proof"
+
       - name: Run internal RBSR mutations
+        if: steps.internal-proof.outputs.cache-hit != 'true'
         run: |
           set -euo pipefail
           cargo mutants -p rbsr \
@@ -270,6 +372,26 @@ jobs:
             --no-shuffle \
             --caught \
             --unviable
+
+      - name: Record successful internal proof
+        if: steps.internal-proof.outputs.cache-hit != 'true' && success()
+        env:
+          FINGERPRINT: ${{ needs.plan.outputs.fingerprint }}
+        run: |
+          set -euo pipefail
+          mkdir -p .mutation-proof/rbsr-internal
+          {
+            echo "fingerprint=${FINGERPRINT}"
+            echo 'status=success'
+            echo 'kind=rbsr-internal'
+          } > .mutation-proof/rbsr-internal/proof.txt
+
+      - name: Save successful internal proof
+        if: steps.internal-proof.outputs.cache-hit != 'true' && success()
+        uses: actions/cache/save@v4
+        with:
+          path: .mutation-proof/rbsr-internal
+          key: mutation-proof-v1-${{ needs.plan.outputs.fingerprint }}-rbsr-internal
 
       - name: Upload failed mutation output
         if: failure()
