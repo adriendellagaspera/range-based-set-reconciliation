@@ -57,21 +57,25 @@ impl<K: Ord, V> FingerprintTreeMap<K, V> {
                 return node.subtree();
             }
             let mut cum = Aggregate::ZERO;
-            let mut i = 0;
-            while i < node.keys.len() && node.keys[i].rcmp(range) == RangeOrdering::Below {
-                i += 1;
-            }
-            while i < node.keys.len() && node.keys[i].rcmp(range) == RangeOrdering::Inside {
+            // RangeOrdering is monotone over sorted keys: Below*, Inside*, Above*.
+            // Compute both boundaries up front so traversal is bounded by the node's key count
+            // rather than by a mutable cursor whose progress is part of the loop body.
+            let first_inside = node
+                .keys
+                .partition_point(|key| key.rcmp(range) == RangeOrdering::Below);
+            let after_inside = node
+                .keys
+                .partition_point(|key| key.rcmp(range) != RangeOrdering::Above);
+            for i in first_inside..after_inside {
                 let cur_bound = Some(&node.keys[i]);
                 if let Some(children) = node.children.as_ref() {
                     cum += aux(&children[i], range, lower_bound, cur_bound);
                 }
                 cum += element(node.fingerprint(i));
                 lower_bound = cur_bound;
-                i += 1;
             }
             if let Some(children) = node.children.as_ref() {
-                cum += aux(&children[i], range, lower_bound, upper_bound);
+                cum += aux(&children[after_inside], range, lower_bound, upper_bound);
             }
             cum
         }
