@@ -143,7 +143,6 @@ fn for_fan_out_never_exceeds_the_requested_branching_factor() {
     }
 }
 
-
 #[cfg(rbsr_internal_testing)]
 #[test]
 fn span_hashed_stride_split_matches_golden_spans() {
@@ -154,9 +153,7 @@ fn span_hashed_stride_split_matches_golden_spans() {
         (397, 5),
         (999_983, 2),
     ] {
-        let Decision::Split(stride) =
-            SpanHashedStrideSplit.decide(mismatch(span, span + 1))
-        else {
+        let Decision::Split(stride) = SpanHashedStrideSplit.decide(mismatch(span, span + 1)) else {
             panic!("span {span} must reach the probe's split rule");
         };
         assert_eq!(
