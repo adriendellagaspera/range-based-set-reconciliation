@@ -82,7 +82,6 @@ fn sqrt_fan_out_is_still_the_square_root_of_the_range_size() {
     }
 }
 
-
 #[test]
 fn one_child_split_reuses_the_parent_aggregate() {
     let store = CountingView {
