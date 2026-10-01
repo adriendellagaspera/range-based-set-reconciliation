@@ -218,31 +218,26 @@ where
                 // concrete resolved span rather than a policy-reported span.
                 let actual_span = end_index.get() - start_index.get();
                 let remainder = actual_span % stride;
+                // Preserve the protocol's historical one-child result even if a custom policy
+                // asks to split an empty span. For non-empty spans this is exactly ceil(span / stride).
+                let child_count = block_count(actual_span, stride).max(1);
                 let short_block =
-                    (remainder != 0).then(|| rng.gen_range(0..block_count(actual_span, stride)));
+                    (remainder != 0).then(|| rng.gen_range(0..child_count));
                 let mut cur_bound = start_bound;
                 let mut cur_index = start_index;
-                let mut block = 0usize;
-                loop {
+
+                // Every non-final child must end strictly before the parent end. Iterating a
+                // precomputed number of cuts keeps a malformed stride choice bounded instead of
+                // letting loop progress depend on the mutated cursor update.
+                for block in 0..child_count.saturating_sub(1) {
                     let this_stride = if short_block == Some(block) {
                         remainder
                     } else {
                         stride
                     };
-                    // `None` means the next cut would reach `end_index`: this child is the last.
-                    // `Some` is in bounds for any backend by construction — see `AdmittedRank`.
-                    let Some(next_index) = cur_index.cut_before(end_index, this_stride) else {
-                        let range = KeyRange::new(cur_bound, end_bound);
-                        // An uncut child *is* the parent, whose aggregate is already in hand.
-                        let aggregate = if cur_index == start_index {
-                            local_aggregate
-                        } else {
-                            local.aggregate(range.clone())
-                        };
-                        child_ranges.push(RangeAggregate { range, aggregate });
-                        outcome.children += 1;
-                        break;
-                    };
+                    let next_index = cur_index
+                        .cut_before(end_index, this_stride)
+                        .expect("non-final split child must cut before the parent end");
                     let next_key = local.select(next_index.get()).clone();
                     let range = KeyRange::new(cur_bound, EndBound::Excluded(next_key.clone()));
                     let aggregate = local.aggregate(range.clone());
@@ -250,8 +245,17 @@ where
                     outcome.children += 1;
                     cur_bound = StartBound::Included(next_key);
                     cur_index = next_index;
-                    block += 1;
                 }
+
+                let range = KeyRange::new(cur_bound, end_bound);
+                // An uncut child *is* the parent, whose aggregate is already in hand.
+                let aggregate = if cur_index == start_index {
+                    local_aggregate
+                } else {
+                    local.aggregate(range.clone())
+                };
+                child_ranges.push(RangeAggregate { range, aggregate });
+                outcome.children += 1;
             }
         }
     }
