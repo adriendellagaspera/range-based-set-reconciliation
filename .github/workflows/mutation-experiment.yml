@@ -1,4 +1,4 @@
-name: mutation concurrency cross-shard
+name: mutation profile experiment
 
 on:
   pull_request:
@@ -11,21 +11,20 @@ env:
 
 jobs:
   rsos:
-    name: rsos shard ${{ matrix.shard }}/32 (jobs=${{ matrix.local_jobs }})
+    name: rsos 1/32 (${{ matrix.variant }})
     runs-on: ubuntu-latest
     timeout-minutes: 12
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 17]
-        local_jobs: [2, 3]
+        variant: [default, no-debug]
 
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
-          key: mutation-cross-shard-${{ matrix.shard }}-${{ matrix.local_jobs }}
+          key: mutation-profile-${{ matrix.variant }}
 
       - name: Install cargo-mutants
         uses: taiki-e/install-action@v2
@@ -34,14 +33,16 @@ jobs:
 
       - name: Run mutations
         env:
-          SHARD: ${{ matrix.shard }}
-          LOCAL_JOBS: ${{ matrix.local_jobs }}
+          VARIANT: ${{ matrix.variant }}
         run: |
           set -euo pipefail
+          if test "${VARIANT}" = "no-debug"; then
+            export CARGO_PROFILE_TEST_DEBUG=0
+          fi
           cargo mutants -p rsos \
             --exclude 'rsos/src/counters.rs' \
-            --shard "${SHARD}/32" \
-            --jobs "${LOCAL_JOBS}" \
+            --shard 1/32 \
+            --jobs 2 \
             --no-shuffle \
             --caught \
             --unviable
