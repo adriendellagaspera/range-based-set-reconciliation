@@ -1,0 +1,58 @@
+name: mutation rbsr jobs experiment
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: never
+
+jobs:
+  mutants:
+    name: rbsr (jobs=${{ matrix.local_jobs }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        local_jobs: [1, 2, 3]
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install cargo-mutants
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-mutants@27.1.0
+
+      - name: Count stable rbsr mutants
+        run: |
+          set -euo pipefail
+          cargo mutants -p rbsr \
+            --exclude 'rbsr/src/probe_harness.rs' \
+            --exclude 'rbsr/src/policy/constant_stride_split.rs' \
+            --exclude 'rbsr/src/policy/span_hashed_stride_split.rs' \
+            --exclude-re 'local_for_testing|remote_for_testing' \
+            --list | tee mutants.txt
+          echo "mutant_count=$(wc -l < mutants.txt)"
+
+      - name: Run mutations
+        env:
+          LOCAL_JOBS: ${{ matrix.local_jobs }}
+        run: |
+          set -euo pipefail
+          cargo mutants -p rbsr \
+            --exclude 'rbsr/src/probe_harness.rs' \
+            --exclude 'rbsr/src/policy/constant_stride_split.rs' \
+            --exclude 'rbsr/src/policy/span_hashed_stride_split.rs' \
+            --exclude-re 'local_for_testing|remote_for_testing' \
+            --jobs "${LOCAL_JOBS}" \
+            --no-shuffle \
+            --caught \
+            --unviable
+
+      - name: Print machine-readable outcome
+        if: always()
+        run: test ! -f mutants.out/outcomes.json || cat mutants.out/outcomes.json
