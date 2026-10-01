@@ -82,6 +82,21 @@ pub(super) struct InvertedRange {
     pub(super) raw_end: usize,
 }
 
+fn clamped_rank_offender(
+    raw_start: usize,
+    raw_end: usize,
+    start_index: AdmittedRank,
+    end_index: AdmittedRank,
+) -> Option<usize> {
+    if start_index.get() != raw_start {
+        Some(raw_start)
+    } else if end_index.get() != raw_end {
+        Some(raw_end)
+    } else {
+        None
+    }
+}
+
 impl<K> BoundedRange<K> {
     /// Absolute positions from [`RsosView::rank`], which the fan-out steps through with
     /// [`RsosView::select`] — an aggregate gives the count, not the positions. Admitted here, see
@@ -108,12 +123,9 @@ impl<K> BoundedRange<K> {
         let start_index = size.admit(raw_start);
         let end_index = size.admit(raw_end);
         // The clamp bit exactly when admitting changed the value — no flag to carry alongside.
-        if start_index.get() != raw_start || end_index.get() != raw_end {
-            let offender = if start_index.get() != raw_start {
-                raw_start
-            } else {
-                raw_end
-            };
+        if let Some(offender) =
+            clamped_rank_offender(raw_start, raw_end, start_index, end_index)
+        {
             let size = size.get();
             debug!(
                 "RsosView backend broke rank-within-store: returned rank {offender} for a store of \
@@ -126,5 +138,32 @@ impl<K> BoundedRange<K> {
             start_index,
             end_index,
         })
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::{clamped_rank_offender, StoreSize};
+
+    #[test]
+    fn clamped_rank_offender_identifies_the_changed_admission() {
+        let size = StoreSize(3);
+
+        assert_eq!(
+            clamped_rank_offender(4, 5, size.admit(4), size.admit(5)),
+            Some(4),
+            "when both ranks are clamped, report the start first"
+        );
+        assert_eq!(
+            clamped_rank_offender(2, 5, size.admit(2), size.admit(5)),
+            Some(5),
+            "an unchanged start leaves an over-reported end as the offender"
+        );
+        assert_eq!(
+            clamped_rank_offender(2, 3, size.admit(2), size.admit(3)),
+            None,
+            "ranks already within the store need no diagnostic"
+        );
     }
 }
