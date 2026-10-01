@@ -1,0 +1,60 @@
+name: mutation rsos survivor validation
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: never
+  CARGO_PROFILE_TEST_DEBUG: "0"
+
+jobs:
+  mutants:
+    name: ${{ matrix.surface }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        surface: [fingerprint, tree-core]
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install cargo-mutants
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-mutants@27.1.0
+
+      - name: Run targeted mutations
+        env:
+          SURFACE: ${{ matrix.surface }}
+        run: |
+          set -euo pipefail
+          files=()
+          case "$SURFACE" in
+            fingerprint)
+              files+=(--file 'rsos/src/fingerprint.rs')
+              ;;
+            tree-core)
+              files+=(--file 'rsos/src/fingerprint_tree_map.rs')
+              files+=(--file 'rsos/src/fingerprint_tree_map/node.rs')
+              files+=(--file 'rsos/src/rsos_trait.rs')
+              ;;
+            *)
+              exit 2
+              ;;
+          esac
+          cargo mutants -p rsos \
+            "${files[@]}" \
+            --test-workspace=true \
+            --jobs 2 \
+            --no-shuffle \
+            --caught \
+            --unviable
+
+      - name: Print outcome
+        if: always()
+        run: test ! -f mutants.out/outcomes.json || cat mutants.out/outcomes.json
