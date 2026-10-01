@@ -168,7 +168,7 @@ fn check_invariants_catches_an_undersized_non_root_node() {
             while node.keys.len() >= MIN_CAPACITY {
                 node.keys.pop();
                 node.values.pop();
-                node.fingerprints.pop();
+                node.pop_fingerprint();
             }
         }
     }
