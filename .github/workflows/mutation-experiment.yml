@@ -1,4 +1,4 @@
-name: mutation rsos internal query
+name: mutation filter experiment
 
 on:
   pull_request:
@@ -8,30 +8,38 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: never
-  CARGO_PROFILE_TEST_DEBUG: "0"
-  RUSTFLAGS: --cfg rbsr_internal_testing
 
 jobs:
-  query:
+  inventory:
+    name: inventory filters
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - name: Install cargo-mutants
-        uses: taiki-e/install-action@v2
+      - uses: taiki-e/install-action@v2
         with:
           tool: cargo-mutants@27.1.0
-      - name: Run query mutations with internal counters enabled
+      - name: Compare mutant inventories
         run: |
           set -euo pipefail
           cargo mutants -p rsos \
-            --file 'rsos/src/fingerprint_tree_map/query.rs' \
-            --test-workspace=true \
-            --jobs 2 \
-            --no-shuffle \
-            --caught \
-            --unviable
-      - name: Print outcome
-        if: always()
-        run: test ! -f mutants.out/outcomes.json || cat mutants.out/outcomes.json
+            --exclude 'rsos/src/counters.rs' \
+            --list > base.txt
+
+          cargo mutants -p rsos \
+            --exclude 'rsos/src/counters.rs' \
+            --exclude 'rsos/src/**/tests.rs' \
+            --exclude 'rsos/src/**/tests/*.rs' \
+            --list > explicit-test-excludes.txt
+
+          echo "base=$(wc -l < base.txt)"
+          echo "explicit_test_excludes=$(wc -l < explicit-test-excludes.txt)"
+
+          echo '--- added by explicit test exclusions ---'
+          comm -13 <(sort base.txt) <(sort explicit-test-excludes.txt) | tee added.txt
+          echo "added=$(wc -l < added.txt)"
+
+          echo '--- removed by explicit test exclusions ---'
+          comm -23 <(sort base.txt) <(sort explicit-test-excludes.txt) | tee removed.txt
+          echo "removed=$(wc -l < removed.txt)"
