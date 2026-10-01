@@ -120,13 +120,8 @@ impl Fingerprint {
         let mut borrow = 0i128;
         for (o, (&a, &b)) in out.iter_mut().zip(self.0.iter().zip(other.0.iter())) {
             let diff = a as i128 - b as i128 - borrow;
-            if diff < 0 {
-                *o = (diff + (1i128 << 64)) as u64;
-                borrow = 1;
-            } else {
-                *o = diff as u64;
-                borrow = 0;
-            }
+            *o = diff as u64;
+            borrow = i128::from(diff < 0);
         }
         Fingerprint(out)
     }
