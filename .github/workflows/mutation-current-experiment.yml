@@ -1,4 +1,4 @@
-name: mutation current baseline
+name: mutation baseline-skip experiment
 
 on:
   pull_request:
@@ -11,173 +11,45 @@ env:
   CARGO_PROFILE_TEST_DEBUG: "0"
 
 jobs:
-  plan:
+  compare:
+    name: ${{ matrix.target }} / baseline=${{ matrix.baseline }}
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.99.0
-      - uses: taiki-e/install-action@v2
-        with:
-          tool: cargo-mutants@27.1.0
-      - name: Freeze dependency resolution and mutant inventories
-        run: |
-          set -euo pipefail
-          rustc -Vv
-          cargo -V
-          cargo mutants --version
-          cargo generate-lockfile
-          sha256sum Cargo.lock
-
-          cargo mutants -p rsos             --exclude 'rsos/src/counters.rs'             --list > rsos-stable.txt
-
-          cargo mutants -p rbsr             --exclude 'rbsr/src/probe_harness.rs'             --exclude 'rbsr/src/policy/constant_stride_split.rs'             --exclude 'rbsr/src/policy/span_hashed_stride_split.rs'             --exclude-re 'local_for_testing|remote_for_testing'             --list > rbsr-stable.txt
-
-          RUSTFLAGS='--cfg rbsr_internal_testing' cargo mutants -p rsos             --file 'rsos/src/counters.rs'             --list > rsos-internal.txt
-
-          RUSTFLAGS='--cfg rbsr_internal_testing' cargo mutants -p rbsr             --file 'rbsr/src/probe_harness.rs'             --file 'rbsr/src/policy/constant_stride_split.rs'             --file 'rbsr/src/policy/span_hashed_stride_split.rs'             --examine-re 'local_for_testing|remote_for_testing|probe_harness|constant_stride_split|span_hashed_stride_split'             --list > rbsr-internal.txt
-
-          for f in rsos-stable rbsr-stable rsos-internal rbsr-internal; do
-            printf '%s=%s\n' "$f" "$(wc -l < "$f.txt")"
-            sha256sum "$f.txt"
-          done
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: mutation-plan
-          path: |
-            Cargo.lock
-            rsos-stable.txt
-            rbsr-stable.txt
-            rsos-internal.txt
-            rbsr-internal.txt
-
-  rsos-stable:
-    name: rsos stable ${{ matrix.shard }}/8
-    needs: plan
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        shard: [0, 1, 2, 3, 4, 5, 6, 7]
+        target: [aggregate, query]
+        baseline: [run, skip]
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with:
-          name: mutation-plan
       - uses: dtolnay/rust-toolchain@1.99.0
       - uses: taiki-e/install-action@v2
         with:
           tool: cargo-mutants@27.1.0
-      - name: Verify corpus
+
+      - name: Freeze dependencies
         run: |
           set -euo pipefail
-          cargo mutants -p rsos             --exclude 'rsos/src/counters.rs'             --list > current.txt
-          diff -u rsos-stable.txt current.txt
+          cargo generate-lockfile
+          sha256sum Cargo.lock
+
       - name: Run mutations
         env:
-          SHARD: ${{ matrix.shard }}
+          TARGET: ${{ matrix.target }}
+          BASELINE: ${{ matrix.baseline }}
         run: |
           set -euo pipefail
-          cargo mutants -p rsos             --exclude 'rsos/src/counters.rs'             --test-workspace=true             --cargo-arg=--locked             --shard "${SHARD}/8"             --jobs 2             --no-shuffle             --caught             --unviable
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: rsos-stable-${{ matrix.shard }}
-          path: mutants.out
-          if-no-files-found: ignore
+          case "$TARGET" in
+            aggregate) file='rsos/src/aggregate.rs' ;;
+            query) file='rsos/src/fingerprint_tree_map/query.rs' ;;
+            *) exit 2 ;;
+          esac
 
-  rbsr-stable:
-    name: rbsr stable
-    needs: plan
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with:
-          name: mutation-plan
-      - uses: dtolnay/rust-toolchain@1.99.0
-      - uses: taiki-e/install-action@v2
-        with:
-          tool: cargo-mutants@27.1.0
-      - name: Verify corpus
-        run: |
-          set -euo pipefail
-          cargo mutants -p rbsr             --exclude 'rbsr/src/probe_harness.rs'             --exclude 'rbsr/src/policy/constant_stride_split.rs'             --exclude 'rbsr/src/policy/span_hashed_stride_split.rs'             --exclude-re 'local_for_testing|remote_for_testing'             --list > current.txt
-          diff -u rbsr-stable.txt current.txt
-      - name: Run mutations
-        run: |
-          set -euo pipefail
-          cargo mutants -p rbsr             --exclude 'rbsr/src/probe_harness.rs'             --exclude 'rbsr/src/policy/constant_stride_split.rs'             --exclude 'rbsr/src/policy/span_hashed_stride_split.rs'             --exclude-re 'local_for_testing|remote_for_testing'             --cargo-arg=--locked             --jobs 2             --no-shuffle             --caught             --unviable
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: rbsr-stable
-          path: mutants.out
-          if-no-files-found: ignore
+          cargo mutants -p rsos             --file "$file"             --test-workspace=true             --cargo-arg=--locked             --baseline="$BASELINE"             --timeout 90             --jobs 2             --no-shuffle             --caught             --unviable
 
-  rsos-internal:
-    name: rsos internal
-    needs: plan
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    env:
-      RUSTFLAGS: --cfg rbsr_internal_testing
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with:
-          name: mutation-plan
-      - uses: dtolnay/rust-toolchain@1.99.0
-      - uses: taiki-e/install-action@v2
-        with:
-          tool: cargo-mutants@27.1.0
-      - name: Verify corpus
-        run: |
-          set -euo pipefail
-          cargo mutants -p rsos             --file 'rsos/src/counters.rs'             --list > current.txt
-          diff -u rsos-internal.txt current.txt
-      - name: Run mutations
-        run: |
-          set -euo pipefail
-          cargo mutants -p rsos             --file 'rsos/src/counters.rs'             --test-workspace=true             --cargo-arg=--locked             --jobs 2             --no-shuffle             --caught             --unviable
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: rsos-internal
-          path: mutants.out
-          if-no-files-found: ignore
-
-  rbsr-internal:
-    name: rbsr internal
-    needs: plan
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    env:
-      RUSTFLAGS: --cfg rbsr_internal_testing
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with:
-          name: mutation-plan
-      - uses: dtolnay/rust-toolchain@1.99.0
-      - uses: taiki-e/install-action@v2
-        with:
-          tool: cargo-mutants@27.1.0
-      - name: Verify corpus
-        run: |
-          set -euo pipefail
-          cargo mutants -p rbsr             --file 'rbsr/src/probe_harness.rs'             --file 'rbsr/src/policy/constant_stride_split.rs'             --file 'rbsr/src/policy/span_hashed_stride_split.rs'             --examine-re 'local_for_testing|remote_for_testing|probe_harness|constant_stride_split|span_hashed_stride_split'             --list > current.txt
-          diff -u rbsr-internal.txt current.txt
-      - name: Run mutations
-        run: |
-          set -euo pipefail
-          cargo mutants -p rbsr             --file 'rbsr/src/probe_harness.rs'             --file 'rbsr/src/policy/constant_stride_split.rs'             --file 'rbsr/src/policy/span_hashed_stride_split.rs'             --examine-re 'local_for_testing|remote_for_testing|probe_harness|constant_stride_split|span_hashed_stride_split'             --test-workspace=true             --cargo-arg=--locked             --jobs 2             --no-shuffle             --caught             --unviable
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: rbsr-internal
+          name: baseline-${{ matrix.target }}-${{ matrix.baseline }}
           path: mutants.out
           if-no-files-found: ignore
